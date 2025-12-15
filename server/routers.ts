@@ -9,6 +9,7 @@ import { extractAndUploadCover } from "./services/coverExtraction";
 import { generateInsight } from "./services/insightGeneration";
 import { streamBookInsightsWithClaude, isClaudeConfigured } from "./services/claudeService";
 import { generatePremiumInsight, convertToLegacyFormat } from "./services/premiumInsightPipeline";
+import { streamPremiumInsight, StreamingProgress } from "./services/streamingPremiumPipeline";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
 import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
 import { storagePut } from "./storage";
@@ -284,6 +285,53 @@ export const appRouter = router({
     canStream: publicProcedure.query(() => {
       return { available: isClaudeConfigured() };
     }),
+
+    // Generate insights with streaming progress
+    generateStreaming: publicProcedure
+      .input(z.object({ bookId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = getUserId(ctx);
+        const book = await db.getBookById(input.bookId);
+        if (!book) {
+          throw new Error("Book not found");
+        }
+
+        // Create insight record with pending status
+        const insightId = await db.createInsight({
+          userId,
+          bookId: input.bookId,
+          title: `Insights: ${book.title}`,
+          summary: "",
+          status: "generating",
+          keyThemes: JSON.stringify([]),
+          audioScript: "",
+        });
+
+        // Return the insight ID immediately, streaming will update it
+        // The actual streaming happens in a separate call
+        return { insightId, bookTitle: book.title, bookAuthor: book.author };
+      }),
+
+    // Poll for streaming progress (alternative to WebSocket)
+    getGenerationProgress: publicProcedure
+      .input(z.object({ insightId: z.number() }))
+      .query(async ({ input }) => {
+        const insight = await db.getInsightById(input.insightId);
+        if (!insight) {
+          throw new Error("Insight not found");
+        }
+        
+        const blocks = await db.getContentBlocksByInsightId(input.insightId);
+        
+        return {
+          status: insight.status,
+          title: insight.title,
+          sectionCount: blocks.length,
+          wordCount: insight.wordCount || 0,
+          isComplete: insight.status === "completed",
+          isFailed: insight.status === "failed",
+        };
+      }),
   }),
 
   // Audio router
