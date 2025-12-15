@@ -161,3 +161,11 @@
 - [x] Fix EPUB extraction returning empty content
 - [x] Use alternative EPUB parsing approach (adm-zip + xml parsing)
 - [x] Test with actual EPUB file (Frankenstein - 3055 words from 5 chapters)
+
+
+## Remove All Authentication
+- [x] Remove auth checks from Home page (always show Dashboard)
+- [x] Remove auth checks from Book page (already public)
+- [x] Remove auth checks from Insight page (already public)
+- [x] Remove auth checks from Library page (already public)
+- [x] Update welcome message to be generic ("Transform Your Books")

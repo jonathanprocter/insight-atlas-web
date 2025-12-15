@@ -2,8 +2,7 @@ import { useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { UploadProgress, type UploadStage } from "@/components/UploadProgress";
@@ -22,17 +21,8 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
-
-  if (authLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (user) {
-    return <Dashboard />;
-  }
-
-  return <LandingPage />;
+  // No auth required - always show Dashboard
+  return <Dashboard />;
 }
 
 function LoadingScreen() {
@@ -64,7 +54,7 @@ function LandingPage() {
               <span className="font-serif text-xl md:text-2xl font-semibold text-foreground">Insight Atlas</span>
             </div>
             <Button asChild className="btn-gold btn-mobile">
-              <a href={getLoginUrl()}>Get Started</a>
+              <a href="/">Get Started</a>
             </Button>
           </nav>
 
@@ -80,7 +70,7 @@ function LandingPage() {
               </p>
               <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center px-4">
                 <Button asChild size="lg" className="btn-gold text-base md:text-lg px-6 md:px-8 w-full md:w-auto">
-                  <a href={getLoginUrl()}>
+                  <a href="/">
                     Start Your Journey
                     <ChevronRight className="ml-2 w-5 h-5" />
                   </a>
@@ -178,7 +168,7 @@ function LandingPage() {
               Join thousands of readers who have discovered the power of AI-enhanced book insights.
             </p>
             <Button asChild size="lg" className="btn-gold text-base md:text-lg px-8 md:px-12 w-full md:w-auto">
-              <a href={getLoginUrl()}>
+              <a href="/">
                 Get Started Free
                 <Zap className="ml-2 w-5 h-5" />
               </a>
@@ -223,7 +213,6 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode; titl
 
 function Dashboard() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStage, setUploadStage] = useState<UploadStage>("idle");
   const [uploadFilename, setUploadFilename] = useState<string>("");
@@ -330,16 +319,7 @@ function Dashboard() {
                 <Library className="w-5 h-5 md:mr-2" />
                 <span className="hidden md:inline">Library</span>
               </Button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">
-                    {user?.name?.charAt(0) || "U"}
-                  </span>
-                </div>
-                <span className="text-sm text-muted-foreground hidden md:block">
-                  {user?.name || "User"}
-                </span>
-              </div>
+
             </div>
           </div>
         </div>
@@ -350,7 +330,7 @@ function Dashboard() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-6 md:mb-12">
             <h1 className="font-serif text-2xl md:text-4xl font-bold text-foreground mb-2 md:mb-4">
-              Welcome back, {user?.name?.split(" ")[0] || "Reader"}
+              Transform Your Books
             </h1>
             <p className="text-base md:text-lg text-muted-foreground">
               Upload a book to generate AI-powered insights
