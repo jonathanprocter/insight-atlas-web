@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { ExportModal } from "@/components/ExportModal";
 import { toast } from "sonner";
 import {
   BookOpen,
@@ -30,14 +30,14 @@ import {
 } from "lucide-react";
 
 export default function InsightPage() {
-  const { user, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const insightId = parseInt(params.id || "0");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const { data: insight, isLoading: insightLoading } = trpc.insights.get.useQuery(
     { id: insightId },
-    { enabled: !!insightId && !!user }
+    { enabled: !!insightId }
   );
 
   const { data: voices } = trpc.audio.voices.useQuery();
@@ -122,7 +122,7 @@ export default function InsightPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  if (authLoading || insightLoading) {
+  if (insightLoading) {
     return <LoadingState />;
   }
 
@@ -171,16 +171,11 @@ export default function InsightPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportPdfMutation.mutate({ insightId })}
-                disabled={exportPdfMutation.isPending}
+                onClick={() => setExportModalOpen(true)}
                 className="touch-target text-xs md:text-sm"
               >
-                {exportPdfMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
-                ) : (
-                  <FileDown className="w-4 h-4 md:mr-2" />
-                )}
-                <span className="hidden md:inline">Export PDF</span>
+                <FileDown className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Export</span>
               </Button>
             </div>
           </div>
@@ -309,6 +304,14 @@ export default function InsightPage() {
           </div>
         </div>
       </main>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        insightId={insightId}
+        title={insight.title}
+      />
     </div>
   );
 }

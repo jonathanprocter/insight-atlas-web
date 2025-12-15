@@ -1,15 +1,23 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { extractContent, truncateText } from "./services/fileExtraction";
-import { generateInsight, selectVisualTypes, generateVisualData } from "./services/insightGeneration";
+import { generateInsight } from "./services/insightGeneration";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
-import { generatePremiumPDF } from "./services/pdfExport";
-import { storagePut, storageGet } from "./storage";
-import { VISUAL_TYPES, VISUAL_TYPE_INFO } from "../shared/types";
+import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
+import { storagePut } from "./storage";
+import { VISUAL_TYPE_INFO } from "../shared/types";
+
+// Default anonymous user ID for no-login access
+const ANONYMOUS_USER_ID = 1;
+
+// Helper to get user ID (uses authenticated user or falls back to anonymous)
+function getUserId(ctx: { user?: { id: number } | null }): number {
+  return ctx.user?.id || ANONYMOUS_USER_ID;
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -23,10 +31,10 @@ export const appRouter = router({
     }),
   }),
 
-  // Books router
+  // Books router - all public procedures
   books: router({
     // Upload and process a book file
-    upload: protectedProcedure
+    upload: publicProcedure
       .input(z.object({
         filename: z.string(),
         mimeType: z.string(),
@@ -34,30 +42,31 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         try {
+          const userId = getUserId(ctx);
           const buffer = Buffer.from(input.fileData, "base64");
           
           // Extract content from file
           const extracted = await extractContent(buffer, input.filename, input.mimeType);
           
           // Upload original file to S3
-          const fileKey = `books/${ctx.user.id}/${Date.now()}-${input.filename}`;
+          const fileKey = `books/${userId}/${Date.now()}-${input.filename}`;
           const { url: fileUrl } = await storagePut(fileKey, buffer, input.mimeType);
           
           // Create book record
           const bookId = await db.createBook({
-            userId: ctx.user.id,
+            userId,
             title: extracted.title || input.filename.replace(/\.[^.]+$/, ""),
             author: extracted.author,
             fileUrl,
             fileType: extracted.fileType,
             wordCount: extracted.wordCount,
             pageCount: extracted.pageCount,
-            extractedText: truncateText(extracted.text, 500000), // Store up to 500k chars
+            extractedText: truncateText(extracted.text, 500000),
           });
           
           // Create library item
           await db.createLibraryItem({
-            userId: ctx.user.id,
+            userId,
             bookId,
             readingStatus: "new",
             isFavorite: false,
@@ -78,27 +87,28 @@ export const appRouter = router({
       }),
 
     // Get user's books
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getBooksByUserId(ctx.user.id);
+    list: publicProcedure.query(async ({ ctx }) => {
+      const userId = getUserId(ctx);
+      return db.getBooksByUserId(userId);
     }),
 
     // Get single book
-    get: protectedProcedure
+    get: publicProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ ctx, input }) => {
+      .query(async ({ input }) => {
         const book = await db.getBookById(input.id);
-        if (!book || book.userId !== ctx.user.id) {
+        if (!book) {
           throw new Error("Book not found");
         }
         return book;
       }),
 
     // Delete book
-    delete: protectedProcedure
+    delete: publicProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const book = await db.getBookById(input.id);
-        if (!book || book.userId !== ctx.user.id) {
+        if (!book) {
           throw new Error("Book not found");
         }
         await db.deleteBook(input.id);
@@ -106,20 +116,21 @@ export const appRouter = router({
       }),
   }),
 
-  // Insights router
+  // Insights router - all public procedures
   insights: router({
     // Generate insights for a book
-    generate: protectedProcedure
+    generate: publicProcedure
       .input(z.object({ bookId: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        const userId = getUserId(ctx);
         const book = await db.getBookById(input.bookId);
-        if (!book || book.userId !== ctx.user.id) {
+        if (!book) {
           throw new Error("Book not found");
         }
 
         // Create insight record with pending status
         const insightId = await db.createInsight({
-          userId: ctx.user.id,
+          userId,
           bookId: input.bookId,
           title: `Insights: ${book.title}`,
           summary: "",
@@ -163,7 +174,7 @@ export const appRouter = router({
           });
 
           // Update library item with insight
-          const libraryItems = await db.getLibraryItemsByUserId(ctx.user.id);
+          const libraryItems = await db.getLibraryItemsByUserId(userId);
           const libraryItem = libraryItems.find(item => item.bookId === input.bookId);
           if (libraryItem) {
             await db.updateLibraryItem(libraryItem.id, {
@@ -187,11 +198,11 @@ export const appRouter = router({
       }),
 
     // Get insight by ID
-    get: protectedProcedure
+    get: publicProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ ctx, input }) => {
+      .query(async ({ input }) => {
         const insight = await db.getInsightById(input.id);
-        if (!insight || insight.userId !== ctx.user.id) {
+        if (!insight) {
           throw new Error("Insight not found");
         }
 
@@ -210,27 +221,24 @@ export const appRouter = router({
       }),
 
     // Get insights for a book
-    getByBook: protectedProcedure
+    getByBook: publicProcedure
       .input(z.object({ bookId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        const book = await db.getBookById(input.bookId);
-        if (!book || book.userId !== ctx.user.id) {
-          throw new Error("Book not found");
-        }
+      .query(async ({ input }) => {
         return db.getInsightsByBookId(input.bookId);
       }),
 
     // List all user insights
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getInsightsByUserId(ctx.user.id);
+    list: publicProcedure.query(async ({ ctx }) => {
+      const userId = getUserId(ctx);
+      return db.getInsightsByUserId(userId);
     }),
 
     // Delete insight
-    delete: protectedProcedure
+    delete: publicProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.id);
-        if (!insight || insight.userId !== ctx.user.id) {
+        if (!insight) {
           throw new Error("Insight not found");
         }
         await db.deleteContentBlocksByInsightId(input.id);
@@ -242,14 +250,14 @@ export const appRouter = router({
   // Audio router
   audio: router({
     // Generate audio narration
-    generate: protectedProcedure
+    generate: publicProcedure
       .input(z.object({
         insightId: z.number(),
         voiceId: z.string().optional(),
       }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
-        if (!insight || insight.userId !== ctx.user.id) {
+        if (!insight) {
           throw new Error("Insight not found");
         }
 
@@ -277,11 +285,11 @@ export const appRouter = router({
     }),
 
     // Estimate audio duration
-    estimate: protectedProcedure
+    estimate: publicProcedure
       .input(z.object({ insightId: z.number() }))
-      .query(async ({ ctx, input }) => {
+      .query(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
-        if (!insight || insight.userId !== ctx.user.id) {
+        if (!insight) {
           throw new Error("Insight not found");
         }
 
@@ -293,52 +301,43 @@ export const appRouter = router({
   // Library router
   library: router({
     // Get library items with book and insight details
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getLibraryItemWithDetails(ctx.user.id);
+    list: publicProcedure.query(async ({ ctx }) => {
+      const userId = getUserId(ctx);
+      return db.getLibraryItemWithDetails(userId);
     }),
 
     // Toggle favorite
-    toggleFavorite: protectedProcedure
+    toggleFavorite: publicProcedure
       .input(z.object({ id: z.number(), isFavorite: z.boolean() }))
-      .mutation(async ({ ctx, input }) => {
-        const items = await db.getLibraryItemsByUserId(ctx.user.id);
-        const item = items.find(i => i.id === input.id);
-        if (!item) {
-          throw new Error("Library item not found");
-        }
+      .mutation(async ({ input }) => {
         await db.toggleFavorite(input.id, input.isFavorite);
         return { success: true };
       }),
 
     // Update reading status
-    updateStatus: protectedProcedure
+    updateStatus: publicProcedure
       .input(z.object({
         id: z.number(),
         status: z.enum(["new", "reading", "completed"]),
       }))
-      .mutation(async ({ ctx, input }) => {
-        const items = await db.getLibraryItemsByUserId(ctx.user.id);
-        const item = items.find(i => i.id === input.id);
-        if (!item) {
-          throw new Error("Library item not found");
-        }
+      .mutation(async ({ input }) => {
         await db.updateLibraryItem(input.id, { readingStatus: input.status });
         return { success: true };
       }),
 
     // Search library
-    search: protectedProcedure
+    search: publicProcedure
       .input(z.object({ query: z.string() }))
       .query(async ({ ctx, input }) => {
-        return db.searchLibrary(ctx.user.id, input.query);
+        const userId = getUserId(ctx);
+        return db.searchLibrary(userId, input.query);
       }),
 
     // Delete library item
-    delete: protectedProcedure
+    delete: publicProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const items = await db.getLibraryItemsByUserId(ctx.user.id);
-        const item = items.find(i => i.id === input.id);
+      .mutation(async ({ input }) => {
+        const item = await db.getLibraryItemById(input.id);
         if (!item) {
           throw new Error("Library item not found");
         }
@@ -359,14 +358,14 @@ export const appRouter = router({
       }),
   }),
 
-  // Export router
+  // Export router - multiple formats
   export: router({
     // Generate PDF export
-    pdf: protectedProcedure
+    pdf: publicProcedure
       .input(z.object({ insightId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
-        if (!insight || insight.userId !== ctx.user.id) {
+        if (!insight) {
           throw new Error("Insight not found");
         }
 
@@ -400,6 +399,96 @@ export const appRouter = router({
 
         return result;
       }),
+
+    // Generate Markdown export
+    markdown: publicProcedure
+      .input(z.object({ insightId: z.number() }))
+      .mutation(async ({ input }) => {
+        const insight = await db.getInsightById(input.insightId);
+        if (!insight) {
+          throw new Error("Insight not found");
+        }
+
+        const book = await db.getBookById(insight.bookId);
+        const contentBlocks = await db.getContentBlocksByInsightId(input.insightId);
+
+        const result = await generateMarkdownExport({
+          title: insight.title,
+          author: book?.author || null,
+          summary: insight.summary || "",
+          sections: contentBlocks.map(block => ({
+            type: block.blockType as any,
+            content: block.content || "",
+            title: block.title || undefined,
+            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+          })),
+          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          bookTitle: book?.title || "",
+          generatedAt: new Date(),
+        }, input.insightId);
+
+        return result;
+      }),
+
+    // Generate Plain Text export
+    plainText: publicProcedure
+      .input(z.object({ insightId: z.number() }))
+      .mutation(async ({ input }) => {
+        const insight = await db.getInsightById(input.insightId);
+        if (!insight) {
+          throw new Error("Insight not found");
+        }
+
+        const book = await db.getBookById(insight.bookId);
+        const contentBlocks = await db.getContentBlocksByInsightId(input.insightId);
+
+        const result = await generatePlainTextExport({
+          title: insight.title,
+          author: book?.author || null,
+          summary: insight.summary || "",
+          sections: contentBlocks.map(block => ({
+            type: block.blockType as any,
+            content: block.content || "",
+            title: block.title || undefined,
+            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+          })),
+          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          bookTitle: book?.title || "",
+          generatedAt: new Date(),
+        }, input.insightId);
+
+        return result;
+      }),
+
+    // Generate HTML export
+    html: publicProcedure
+      .input(z.object({ insightId: z.number() }))
+      .mutation(async ({ input }) => {
+        const insight = await db.getInsightById(input.insightId);
+        if (!insight) {
+          throw new Error("Insight not found");
+        }
+
+        const book = await db.getBookById(insight.bookId);
+        const contentBlocks = await db.getContentBlocksByInsightId(input.insightId);
+
+        const result = await generateHTMLExport({
+          title: insight.title,
+          author: book?.author || null,
+          summary: insight.summary || "",
+          sections: contentBlocks.map(block => ({
+            type: block.blockType as any,
+            content: block.content || "",
+            title: block.title || undefined,
+            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+          })),
+          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          bookTitle: book?.title || "",
+          generatedAt: new Date(),
+        }, input.insightId);
+
+        return result;
+      }),
   }),
 
   // Visual types router
@@ -408,45 +497,6 @@ export const appRouter = router({
     types: publicProcedure.query(() => {
       return VISUAL_TYPE_INFO;
     }),
-
-    // Generate visual data for a specific type
-    generate: protectedProcedure
-      .input(z.object({
-        insightId: z.number(),
-        visualType: z.enum(VISUAL_TYPES as unknown as [string, ...string[]]),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const insight = await db.getInsightById(input.insightId);
-        if (!insight || insight.userId !== ctx.user.id) {
-          throw new Error("Insight not found");
-        }
-
-        const themes = JSON.parse(insight.keyThemes || "[]");
-        const visualData = await generateVisualData(
-          insight.summary || "",
-          input.visualType as any,
-          themes
-        );
-
-        return { visualType: input.visualType, data: visualData };
-      }),
-
-    // Select best visual types for content
-    recommend: protectedProcedure
-      .input(z.object({ insightId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        const insight = await db.getInsightById(input.insightId);
-        if (!insight || insight.userId !== ctx.user.id) {
-          throw new Error("Insight not found");
-        }
-
-        const themes = JSON.parse(insight.keyThemes || "[]");
-        const recommended = selectVisualTypes(insight.summary || "", themes);
-
-        return recommended.map(type => 
-          VISUAL_TYPE_INFO.find(v => v.type === type)
-        ).filter(Boolean);
-      }),
   }),
 });
 

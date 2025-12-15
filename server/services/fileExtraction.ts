@@ -9,6 +9,8 @@ export interface ExtractedContent {
   wordCount: number;
   pageCount: number | null;
   fileType: "pdf" | "epub" | "txt";
+  coverImage: Buffer | null;
+  coverMimeType: string | null;
 }
 
 /**
@@ -69,6 +71,8 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
       wordCount,
       pageCount,
       fileType: "pdf",
+      coverImage: null,
+      coverMimeType: null,
     };
   } catch (error) {
     console.error("[PDF Extraction] Error:", error);
@@ -80,6 +84,8 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
       wordCount: 0,
       pageCount: null,
       fileType: "pdf",
+      coverImage: null,
+      coverMimeType: null,
     };
   }
 }
@@ -118,6 +124,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
             wordCount: 0,
             pageCount: null,
             fileType: "epub",
+            coverImage: null,
+            coverMimeType: null,
           });
         }, 30000);
         
@@ -132,6 +140,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
             wordCount: 0,
             pageCount: null,
             fileType: "epub",
+            coverImage: null,
+            coverMimeType: null,
           });
         });
         
@@ -189,6 +199,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
               wordCount,
               pageCount: flow.length,
               fileType: "epub",
+              coverImage: null,
+              coverMimeType: null,
             });
           } catch (error) {
             console.error("[EPUB Extraction] Processing error:", error);
@@ -200,6 +212,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
               wordCount: 0,
               pageCount: null,
               fileType: "epub",
+              coverImage: null,
+              coverMimeType: null,
             });
           }
         });
@@ -219,6 +233,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
           wordCount: 0,
           pageCount: null,
           fileType: "epub",
+          coverImage: null,
+          coverMimeType: null,
         });
       });
     } catch (error) {
@@ -235,6 +251,8 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
         wordCount: 0,
         pageCount: null,
         fileType: "epub",
+        coverImage: null,
+        coverMimeType: null,
       });
     }
   });
@@ -265,6 +283,8 @@ export async function extractFromTXT(buffer: Buffer, filename: string): Promise<
       wordCount,
       pageCount: null,
       fileType: "txt",
+      coverImage: null,
+      coverMimeType: null,
     };
   } catch (error) {
     console.error("[TXT Extraction] Error:", error);
@@ -275,6 +295,8 @@ export async function extractFromTXT(buffer: Buffer, filename: string): Promise<
       wordCount: 0,
       pageCount: null,
       fileType: "txt",
+      coverImage: null,
+      coverMimeType: null,
     };
   }
 }

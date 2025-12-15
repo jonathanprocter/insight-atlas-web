@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { SwipeableCard, ContextMenuWrapper } from "@/components/SwipeableCard";
+import { ExportModal } from "@/components/ExportModal";
 import {
   BookOpen,
   ArrowLeft,
@@ -24,6 +25,9 @@ import {
   BookMarked,
   Loader2,
   Plus,
+  LayoutGrid,
+  LayoutList,
+  Share2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -43,8 +47,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+type LayoutMode = "list" | "grid";
+
 export default function LibraryPage() {
-  const { user, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [, navigate] = useLocation();
   const searchParams = useSearch();
   const urlFilter = new URLSearchParams(searchParams).get("filter");
@@ -53,15 +58,17 @@ export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState(urlFilter === "favorites" ? "favorites" : "all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("list");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportInsightId, setExportInsightId] = useState<number | null>(null);
+  const [exportTitle, setExportTitle] = useState("");
 
-  const { data: libraryItems, isLoading, refetch } = trpc.library.list.useQuery(
-    undefined,
-    { enabled: !!user }
-  );
+  const { data: libraryItems, isLoading, refetch } = trpc.library.list.useQuery();
 
   const toggleFavoriteMutation = trpc.library.toggleFavorite.useMutation({
     onSuccess: () => {
       refetch();
+      toast.success("Updated favorites");
     },
     onError: (error) => {
       toast.error(`Failed to update favorite: ${error.message}`);
@@ -116,20 +123,22 @@ export default function LibraryPage() {
     setDeleteDialogOpen(true);
   };
 
+  const handleExport = (insightId: number, title: string) => {
+    setExportInsightId(insightId);
+    setExportTitle(title);
+    setExportModalOpen(true);
+  };
+
   const confirmDelete = () => {
     if (itemToDelete) {
       deleteMutation.mutate({ id: itemToDelete });
     }
   };
 
-  if (authLoading) {
-    return <LoadingState />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card safe-area-top">
+      <header className="border-b border-border bg-card safe-area-top sticky top-0 z-30">
         <div className="container py-3 md:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 md:gap-4">
@@ -143,10 +152,25 @@ export default function LibraryPage() {
                 <span className="font-serif text-lg md:text-2xl font-semibold text-foreground">Library</span>
               </div>
             </div>
-            <Button className="btn-gold btn-mobile hidden md:flex" onClick={() => navigate("/")}>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Upload Book
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Layout Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLayoutMode(layoutMode === "list" ? "grid" : "list")}
+                className="touch-target"
+              >
+                {layoutMode === "list" ? (
+                  <LayoutGrid className="w-5 h-5" />
+                ) : (
+                  <LayoutList className="w-5 h-5" />
+                )}
+              </Button>
+              <Button className="btn-gold btn-mobile hidden md:flex" onClick={() => navigate("/")}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Upload Book
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -188,9 +212,16 @@ export default function LibraryPage() {
           </TabsList>
         </Tabs>
 
+        {/* Swipe Hint - Mobile Only */}
+        {filteredItems.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center mb-3 md:hidden">
+            Swipe left for actions, swipe right to favorite
+          </p>
+        )}
+
         {/* Library Items */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+          <div className={layoutMode === "grid" ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6" : "space-y-3"}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-4 md:p-6">
@@ -212,16 +243,44 @@ export default function LibraryPage() {
             searchQuery={searchQuery}
             onUpload={() => navigate("/")}
           />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        ) : layoutMode === "grid" ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {filteredItems.map((item) => (
-              <LibraryItemCard
+              <GridItemCard
                 key={item.id}
                 item={item}
                 onNavigate={(path) => navigate(path)}
                 onToggleFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
+                onExport={() => item.insight && handleExport(item.insight.id, item.book?.title || "Insights")}
                 onDelete={() => handleDelete(item.id)}
               />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredItems.map((item) => (
+              <SwipeableCard
+                key={item.id}
+                onFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
+                onExport={() => item.insight && handleExport(item.insight.id, item.book?.title || "Insights")}
+                onDelete={() => handleDelete(item.id)}
+                isFavorite={item.isFavorite}
+              >
+                <ContextMenuWrapper
+                  onFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
+                  onExport={() => item.insight && handleExport(item.insight.id, item.book?.title || "Insights")}
+                  onDelete={() => handleDelete(item.id)}
+                  isFavorite={item.isFavorite}
+                >
+                  <LibraryItemCard
+                    item={item}
+                    onNavigate={(path) => navigate(path)}
+                    onToggleFavorite={() => handleToggleFavorite(item.id, item.isFavorite)}
+                    onExport={() => item.insight && handleExport(item.insight.id, item.book?.title || "Insights")}
+                    onDelete={() => handleDelete(item.id)}
+                  />
+                </ContextMenuWrapper>
+              </SwipeableCard>
             ))}
           </div>
         )}
@@ -259,6 +318,19 @@ export default function LibraryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Export Modal */}
+      {exportInsightId && (
+        <ExportModal
+          isOpen={exportModalOpen}
+          onClose={() => {
+            setExportModalOpen(false);
+            setExportInsightId(null);
+          }}
+          insightId={exportInsightId}
+          title={exportTitle}
+        />
+      )}
     </div>
   );
 }
@@ -267,11 +339,13 @@ function LibraryItemCard({
   item,
   onNavigate,
   onToggleFavorite,
+  onExport,
   onDelete,
 }: {
   item: any;
   onNavigate: (path: string) => void;
   onToggleFavorite: () => void;
+  onExport: () => void;
   onDelete: () => void;
 }) {
   const book = item.book;
@@ -279,7 +353,7 @@ function LibraryItemCard({
   const hasInsight = !!insight;
 
   return (
-    <Card className="premium-card group hover:shadow-xl transition-all card-mobile">
+    <Card className="premium-card group hover:shadow-xl transition-all card-mobile border-0 shadow-sm">
       <CardContent className="p-4 md:p-6">
         <div className="flex gap-3 md:gap-4">
           {/* Book Cover */}
@@ -305,40 +379,48 @@ function LibraryItemCard({
                 )}
               </div>
 
-              {/* Actions Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0 w-8 h-8 md:w-10 md:h-10 touch-target">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={onToggleFavorite} className="py-3">
-                    {item.isFavorite ? (
+              {/* Actions Menu - Desktop */}
+              <div className="hidden md:block">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0 w-8 h-8 md:w-10 md:h-10 touch-target">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={onToggleFavorite} className="py-3">
+                      {item.isFavorite ? (
+                        <>
+                          <StarOff className="w-4 h-4 mr-2" />
+                          Remove Favorite
+                        </>
+                      ) : (
+                        <>
+                          <Star className="w-4 h-4 mr-2" />
+                          Add to Favorites
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    {hasInsight && (
                       <>
-                        <StarOff className="w-4 h-4 mr-2" />
-                        Remove Favorite
-                      </>
-                    ) : (
-                      <>
-                        <Star className="w-4 h-4 mr-2" />
-                        Add to Favorites
+                        <DropdownMenuItem onClick={() => onNavigate(`/insight/${insight.id}`)} className="py-3">
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          View Insights
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onExport} className="py-3">
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Export
+                        </DropdownMenuItem>
                       </>
                     )}
-                  </DropdownMenuItem>
-                  {hasInsight && (
-                    <DropdownMenuItem onClick={() => onNavigate(`/insight/${insight.id}`)} className="py-3">
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      View Insights
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onDelete} className="text-destructive py-3">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onDelete} className="text-destructive py-3">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             {/* Metadata */}
@@ -383,6 +465,74 @@ function LibraryItemCard({
   );
 }
 
+function GridItemCard({
+  item,
+  onNavigate,
+  onToggleFavorite,
+  onExport,
+  onDelete,
+}: {
+  item: any;
+  onNavigate: (path: string) => void;
+  onToggleFavorite: () => void;
+  onExport: () => void;
+  onDelete: () => void;
+}) {
+  const book = item.book;
+  const insight = item.insight;
+  const hasInsight = !!insight;
+
+  return (
+    <ContextMenuWrapper
+      onFavorite={onToggleFavorite}
+      onExport={hasInsight ? onExport : undefined}
+      onDelete={onDelete}
+      isFavorite={item.isFavorite}
+    >
+      <Card
+        className="premium-card group hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+        onClick={() => onNavigate(hasInsight ? `/insight/${insight.id}` : `/book/${book?.id}`)}
+      >
+        {/* Book Cover */}
+        <div className="aspect-[3/4] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
+          <BookOpen className="w-12 h-12 text-primary/30" />
+          
+          {/* Favorite Badge */}
+          {item.isFavorite && (
+            <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center">
+              <Star className="w-3 h-3 text-white fill-current" />
+            </div>
+          )}
+          
+          {/* Status Badges */}
+          <div className="absolute bottom-2 left-2 flex gap-1">
+            {hasInsight && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-500 text-white text-xs">
+                <Sparkles className="w-2.5 h-2.5" />
+              </span>
+            )}
+            {insight?.audioUrl && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-xs">
+                <Headphones className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Content */}
+        <CardContent className="p-3">
+          <h3 className="font-serif text-sm font-semibold text-foreground line-clamp-2 mb-1">
+            {book?.title || "Untitled"}
+          </h3>
+          {book?.author && (
+            <p className="text-xs text-muted-foreground truncate">{book.author}</p>
+          )}
+        </CardContent>
+      </Card>
+    </ContextMenuWrapper>
+  );
+}
+
 function EmptyState({
   activeTab,
   searchQuery,
@@ -420,20 +570,6 @@ function EmptyState({
           Upload Your First Book
         </Button>
       )}
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background safe-area-top safe-area-bottom">
-      <div className="text-center px-4">
-        <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 relative">
-          <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <p className="text-muted-foreground font-serif text-base md:text-lg">Loading library...</p>
-      </div>
     </div>
   );
 }

@@ -99,3 +99,31 @@
 - [x] Mobile-optimized audio player with touch-friendly controls
 - [x] Floating action button for mobile upload
 - [x] Responsive cards and layouts for all pages
+
+
+## Book Cover Extraction
+- [ ] Extract cover image from EPUB files
+- [ ] Extract cover image from PDF files (first page thumbnail)
+- [ ] Upload extracted covers to S3 storage
+- [ ] Add coverUrl field to books table
+- [ ] Display covers in Library page
+- [ ] Display covers in Book detail page
+
+
+## No Login Required
+- [x] Remove authentication requirement from all routes
+- [x] Change protected procedures to public procedures
+- [x] Update Home page to show Dashboard directly (no landing page)
+- [x] Remove login buttons and auth-related UI
+- [x] Ensure all features work without user context
+
+
+## iOS Feature Parity
+- [x] Swipe actions on library items (delete, export, favorite)
+- [x] Context menu on right-click (delete, export, favorite)
+- [x] Multiple export formats (PDF, Markdown, Plain Text, HTML)
+- [x] Export modal with format selection
+- [x] Grid/List layout toggle
+- [x] Filter bar (All, Favorites, Reading, Completed)
+- [ ] Book cover extraction and display
+- [x] Share sheet for exports (Web Share API)
