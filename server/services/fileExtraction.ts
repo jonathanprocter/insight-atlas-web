@@ -14,39 +14,58 @@ export interface ExtractedContent {
 }
 
 /**
- * Extract text content from a PDF file buffer
+ * Extract text content from a PDF file buffer using pdfjs-dist
  */
 export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> {
   try {
-    // Dynamic import to avoid issues
-    const { PDFParse } = await import("pdf-parse");
+    // Use pdfjs-dist directly for better compatibility
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
     
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+    });
     
-    let text = "";
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+    
+    // Get metadata
     let title = "Untitled PDF";
     let author: string | null = null;
-    let pageCount: number | null = null;
     
     try {
-      const textResult = await parser.getText();
-      text = textResult.text || "";
-      pageCount = textResult.pages?.length || null;
-    } catch (textError) {
-      console.warn("[PDF Extraction] Text extraction failed:", textError);
+      const metadata = await pdf.getMetadata();
+      if (metadata.info) {
+        const info = metadata.info as Record<string, any>;
+        if (info.Title) title = String(info.Title);
+        if (info.Author) author = String(info.Author);
+      }
+    } catch (metaError) {
+      console.warn("[PDF Extraction] Metadata extraction failed:", metaError);
     }
     
-    try {
-      const infoResult = await parser.getInfo();
-      if (infoResult.info?.Title) {
-        title = infoResult.info.Title;
+    // Extract text from all pages
+    const textParts: string[] = [];
+    
+    for (let pageNum = 1; pageNum <= Math.min(numPages, 500); pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        const pageText = textContent.items
+          .map((item: any) => item.str || "")
+          .join(" ");
+        
+        if (pageText.trim()) {
+          textParts.push(pageText);
+        }
+      } catch (pageError) {
+        console.warn(`[PDF Extraction] Page ${pageNum} extraction failed:`, pageError);
       }
-      if (infoResult.info?.Author) {
-        author = infoResult.info.Author;
-      }
-    } catch (infoError) {
-      console.warn("[PDF Extraction] Info extraction failed:", infoError);
     }
+    
+    const text = textParts.join("\n\n");
     
     // Fallback title from first line
     if (title === "Untitled PDF" && text) {
@@ -58,18 +77,14 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
     
     const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
     
-    try {
-      await parser.destroy();
-    } catch {
-      // Ignore destroy errors
-    }
+    console.log(`[PDF Extraction] Extracted ${wordCount} words from ${numPages} pages`);
     
     return {
       title,
       author,
       text,
       wordCount,
-      pageCount,
+      pageCount: numPages,
       fileType: "pdf",
       coverImage: null,
       coverMimeType: null,
@@ -127,7 +142,7 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
             coverImage: null,
             coverMimeType: null,
           });
-        }, 30000);
+        }, 60000); // Increased timeout to 60 seconds
         
         epub.on("error", (err: Error) => {
           clearTimeout(timeout);
@@ -151,21 +166,31 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
             const title = epub.metadata?.title || "EPUB Document";
             const author = epub.metadata?.creator || null;
             
+            console.log(`[EPUB Extraction] Processing: ${title} by ${author || "Unknown"}`);
+            
             // Extract text from chapters with error handling
             const chapters: string[] = [];
             const flow = epub.flow || [];
             
-            for (const chapter of flow.slice(0, 50)) { // Limit chapters to prevent timeout
+            console.log(`[EPUB Extraction] Found ${flow.length} chapters`);
+            
+            for (let i = 0; i < Math.min(flow.length, 100); i++) {
+              const chapter = flow[i];
               if (chapter.id) {
                 try {
                   const chapterText = await new Promise<string>((res) => {
-                    const chapterTimeout = setTimeout(() => res(""), 5000);
+                    const chapterTimeout = setTimeout(() => res(""), 10000);
                     epub.getChapter(chapter.id!, (err: Error | null, text?: string) => {
                       clearTimeout(chapterTimeout);
-                      if (err) res("");
-                      else res(text || "");
+                      if (err) {
+                        console.warn(`[EPUB Extraction] Chapter ${i} error:`, err.message);
+                        res("");
+                      } else {
+                        res(text || "");
+                      }
                     });
                   });
+                  
                   // Strip HTML tags
                   const cleanText = chapterText
                     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
@@ -176,19 +201,25 @@ export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent>
                     .replace(/&lt;/g, "<")
                     .replace(/&gt;/g, ">")
                     .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&#x27;/g, "'")
+                    .replace(/&apos;/g, "'")
                     .replace(/\s+/g, " ")
                     .trim();
-                  if (cleanText && cleanText.length > 10) {
+                  
+                  if (cleanText && cleanText.length > 20) {
                     chapters.push(cleanText);
                   }
-                } catch {
-                  // Skip failed chapters
+                } catch (chapterError) {
+                  console.warn(`[EPUB Extraction] Chapter ${i} processing error:`, chapterError);
                 }
               }
             }
             
             const text = chapters.join("\n\n");
             const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+            
+            console.log(`[EPUB Extraction] Extracted ${wordCount} words from ${chapters.length} chapters`);
             
             cleanup();
             
@@ -276,6 +307,8 @@ export async function extractFromTXT(buffer: Buffer, filename: string): Promise<
       title = firstLine.trim();
     }
     
+    console.log(`[TXT Extraction] Extracted ${wordCount} words`);
+    
     return {
       title,
       author: null,
@@ -310,6 +343,8 @@ export async function extractContent(
   mimeType: string
 ): Promise<ExtractedContent> {
   const lowerFilename = filename.toLowerCase();
+  
+  console.log(`[Extraction] Processing file: ${filename}, type: ${mimeType}, size: ${buffer.length} bytes`);
   
   if (mimeType === "application/pdf" || lowerFilename.endsWith(".pdf")) {
     return extractFromPDF(buffer);

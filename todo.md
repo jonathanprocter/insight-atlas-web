@@ -149,3 +149,9 @@
 - [x] Extract book covers from PDF files (first page)
 - [x] Upload covers to S3 and store URL in database
 - [x] Display covers in Library and Book detail pages
+
+
+## Bug Fixes - Content Extraction
+- [x] Fix PDF text extraction using pdfjs-dist directly
+- [x] Fix EPUB text extraction with improved error handling
+- [x] Ensure extracted text is saved to database correctly
