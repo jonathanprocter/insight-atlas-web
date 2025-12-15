@@ -81,58 +81,14 @@ export async function extractEpubCover(buffer: Buffer): Promise<{ coverBuffer: B
 
 /**
  * Extract cover image from PDF file (first page)
+ * Note: This function is currently disabled due to sharp/pdf-poppler Linux compatibility issues.
+ * Cover extraction for PDFs will be skipped gracefully.
  */
 export async function extractPdfCover(buffer: Buffer): Promise<{ coverBuffer: Buffer; mimeType: string } | null> {
-  const tmpDir = os.tmpdir();
-  const tmpPdfPath = path.join(tmpDir, `pdf-${Date.now()}.pdf`);
-  const tmpOutputPath = path.join(tmpDir, `pdf-cover-${Date.now()}`);
-  
-  try {
-    // Write PDF to temp file
-    fs.writeFileSync(tmpPdfPath, buffer);
-    
-    // Try using pdf-poppler to convert first page to image
-    // @ts-ignore - pdf-poppler has no types
-    const pdfPoppler = await import("pdf-poppler");
-    
-    const opts = {
-      format: "jpeg",
-      out_dir: tmpDir,
-      out_prefix: `pdf-cover-${Date.now()}`,
-      page: 1,
-      scale: 1024, // Width in pixels
-    };
-    
-    await pdfPoppler.convert(tmpPdfPath, opts);
-    
-    // Find the generated image
-    const files = fs.readdirSync(tmpDir);
-    const coverFile = files.find(f => f.startsWith(opts.out_prefix) && f.endsWith(".jpg"));
-    
-    if (coverFile) {
-      const coverPath = path.join(tmpDir, coverFile);
-      const coverBuffer = fs.readFileSync(coverPath);
-      
-      // Cleanup
-      fs.unlinkSync(coverPath);
-      fs.unlinkSync(tmpPdfPath);
-      
-      return { coverBuffer, mimeType: "image/jpeg" };
-    }
-    
-    // Cleanup
-    fs.unlinkSync(tmpPdfPath);
-    return null;
-  } catch (error) {
-    console.error("[Cover Extraction] PDF cover extraction failed:", error);
-    
-    // Cleanup on error
-    try {
-      if (fs.existsSync(tmpPdfPath)) fs.unlinkSync(tmpPdfPath);
-    } catch {}
-    
-    return null;
-  }
+  // Skip PDF cover extraction due to sharp/pdf-poppler Linux compatibility issues
+  // This prevents the "linux is NOT supported" error from blocking insight generation
+  console.log("[Cover Extraction] PDF cover extraction skipped (not supported on this platform)");
+  return null;
 }
 
 /**

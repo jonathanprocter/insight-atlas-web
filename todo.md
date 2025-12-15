@@ -267,3 +267,8 @@
 - [x] Ensure Claude handles Stage 0, Stage 1, and Gap Analysis
 - [x] Integrate ElevenLabs for text-to-speech audio generation (elevenLabsService.ts)
 - [x] Wire ElevenLabs audio generation into the insight pipeline (premiumInsightPipeline.ts)
+
+
+## Bug Fix - Sharp Library Linux Error (Again)
+- [x] Fix "linux is NOT supported" error from sharp library during PDF processing
+- [x] Skip PDF cover extraction gracefully (EPUB covers still work)
