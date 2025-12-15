@@ -14,6 +14,7 @@ import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId
 import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
 import { storagePut } from "./storage";
 import { VISUAL_TYPE_INFO } from "../shared/types";
+import { getDebugLogs, clearDebugLogs, debugLog, logExtraction, logGeneration, logError, logAPI } from "./services/debugLogger";
 
 // Default anonymous user ID for no-login access
 const ANONYMOUS_USER_ID = 1;
@@ -46,11 +47,16 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         try {
+          logExtraction('Starting book upload', { filename: input.filename, mimeType: input.mimeType, size: input.fileData.length });
+          
           const userId = getUserId(ctx);
           const buffer = Buffer.from(input.fileData, "base64");
+          logExtraction('Buffer created', { bufferSize: buffer.length });
           
           // Extract content from file
+          logExtraction('Starting content extraction...');
           const extracted = await extractContent(buffer, input.filename, input.mimeType);
+          logExtraction('Content extracted', { title: extracted.title, wordCount: extracted.wordCount, pageCount: extracted.pageCount, textLength: extracted.text?.length });
           
           // Upload original file to S3
           const fileKey = `books/${userId}/${Date.now()}-${input.filename}`;
@@ -96,6 +102,7 @@ export const appRouter = router({
             fileType: extracted.fileType,
           };
         } catch (error) {
+          logError('extraction', 'Book upload failed', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
           console.error("[Book Upload] Error:", error);
           throw new Error(`Failed to process book: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
@@ -137,11 +144,16 @@ export const appRouter = router({
     generate: publicProcedure
       .input(z.object({ bookId: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        logGeneration('Starting insight generation', { bookId: input.bookId });
+        
         const userId = getUserId(ctx);
         const book = await db.getBookById(input.bookId);
         if (!book) {
+          logError('generation', 'Book not found', { bookId: input.bookId });
           throw new Error("Book not found");
         }
+        
+        logGeneration('Book loaded', { title: book.title, author: book.author, textLength: book.extractedText?.length });
 
         // Create insight record with pending status
         const insightId = await db.createInsight({
@@ -156,13 +168,18 @@ export const appRouter = router({
 
         try {
           // Generate insights using Premium Pipeline (Stage 0 + Stage 1)
-          console.log('[Insights] Starting Premium Pipeline for book:', book.title);
+          logGeneration('Starting Premium Pipeline', { bookTitle: book.title, insightId });
           const premiumInsight = await generatePremiumInsight(
             book.title,
             book.author,
             book.extractedText || ""
           );
-          console.log('[Insights] Premium Pipeline complete:', premiumInsight.sections.length, 'sections,', premiumInsight.wordCount, 'words');
+          logGeneration('Premium Pipeline complete', { 
+            sections: premiumInsight.sections.length, 
+            wordCount: premiumInsight.wordCount,
+            keyThemes: premiumInsight.keyThemes.length,
+            insightId 
+          });
 
           // Store content blocks with premium section types
           for (let i = 0; i < premiumInsight.sections.length; i++) {
@@ -209,6 +226,12 @@ export const appRouter = router({
             wordCount: premiumInsight.wordCount,
           };
         } catch (error) {
+          logError('generation', 'Insight generation failed', { 
+            insightId, 
+            bookId: input.bookId,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
           await db.updateInsight(insightId, { status: "failed" });
           throw error;
         }
@@ -583,6 +606,34 @@ export const appRouter = router({
     // Get all visual types
     types: publicProcedure.query(() => {
       return VISUAL_TYPE_INFO;
+    }),
+  }),
+
+  // Debug router for monitoring extraction and generation
+  debug: router({
+    // Get debug logs
+    logs: publicProcedure
+      .input(z.object({
+        category: z.enum(['extraction', 'generation', 'api', 'llm', 'audio', 'general']).optional(),
+        level: z.enum(['info', 'warn', 'error', 'debug']).optional(),
+        limit: z.number().optional().default(100),
+      }).optional())
+      .query(({ input }) => {
+        return getDebugLogs(input || {});
+      }),
+
+    // Clear all logs
+    clear: publicProcedure.mutation(() => {
+      clearDebugLogs();
+      return { success: true };
+    }),
+
+    // Test logging
+    test: publicProcedure.mutation(() => {
+      debugLog('info', 'general', 'Debug test log entry');
+      debugLog('warn', 'general', 'Debug test warning');
+      debugLog('error', 'general', 'Debug test error');
+      return { success: true, message: 'Test logs added' };
     }),
   }),
 });

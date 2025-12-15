@@ -11,6 +11,7 @@
 
 import { invokeLLM, Message } from '../_core/llm';
 import Anthropic from '@anthropic-ai/sdk';
+import { logLLM, logError } from './debugLogger';
 
 // Check if Anthropic is configured
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -49,11 +50,15 @@ export async function generateWithClaude(
 ): Promise<LLMResponse> {
   const client = getAnthropicClient();
   if (!client) {
-    console.warn('[DualLLM] Anthropic not configured, falling back to built-in LLM');
+    logLLM('Anthropic not configured, falling back to built-in LLM');
     return generateWithBuiltinLLM(systemPrompt, userPrompt, maxTokens);
   }
 
-  console.log('[DualLLM] Using Anthropic Claude (PRIMARY) for generation');
+  logLLM('Using Anthropic Claude (PRIMARY)', { 
+    systemPromptLength: systemPrompt.length, 
+    userPromptLength: userPrompt.length,
+    maxTokens 
+  });
 
   try {
     const response = await client.messages.create({
@@ -75,7 +80,10 @@ export async function generateWithClaude(
       provider: 'anthropic',
     };
   } catch (error) {
-    console.error('[DualLLM] Claude error, falling back to built-in LLM:', error);
+    logError('llm', 'Claude error, falling back to built-in LLM', { 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return generateWithBuiltinLLM(systemPrompt, userPrompt, maxTokens);
   }
 }
@@ -89,7 +97,11 @@ export async function generateWithBuiltinLLM(
   userPrompt: string,
   maxTokens: number = 16000
 ): Promise<LLMResponse> {
-  console.log('[DualLLM] Using built-in LLM (OpenAI/Gemini) for generation');
+  logLLM('Using built-in LLM (OpenAI/Gemini)', { 
+    systemPromptLength: systemPrompt.length, 
+    userPromptLength: userPrompt.length,
+    maxTokens 
+  });
   
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },

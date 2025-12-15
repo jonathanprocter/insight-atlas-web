@@ -272,3 +272,16 @@
 ## Bug Fix - Sharp Library Linux Error (Again)
 - [x] Fix "linux is NOT supported" error from sharp library during PDF processing
 - [x] Skip PDF cover extraction gracefully (EPUB covers still work)
+
+
+## Bug Fix - API Mutation Error
+- [ ] Investigate API mutation error during insight generation
+- [ ] Fix the error and ensure insight generation works
+
+
+## Debug Panel Feature
+- [x] Create debug logging service with in-memory log storage (debugLogger.ts)
+- [x] Add tRPC endpoint to fetch debug logs (debug.logs, debug.clear, debug.test)
+- [x] Add debug panel UI component (DebugPanel.tsx)
+- [x] Add logging to file extraction pipeline
+- [x] Add logging to insight generation pipeline

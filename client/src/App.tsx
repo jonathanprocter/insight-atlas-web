@@ -9,6 +9,7 @@ import Book from "./pages/Book";
 import Insight from "./pages/Insight";
 import Library from "./pages/Library";
 import PipelineTest from "./pages/PipelineTest";
+import { DebugPanel } from "./components/DebugPanel";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <DebugPanel />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

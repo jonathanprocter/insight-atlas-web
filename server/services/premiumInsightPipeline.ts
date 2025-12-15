@@ -15,6 +15,7 @@ import { generatePremiumContent, PremiumGuide, PremiumSection } from './stage1Co
 import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
 import { generateAudioNarration, isElevenLabsConfigured, AudioGenerationResult } from './elevenLabsService';
+import { debugLog, logGeneration, logLLM, logError, timedOperation } from './debugLogger';
 
 export interface InsightSection {
   id: string;
@@ -49,20 +50,34 @@ export async function generatePremiumInsight(
   bookAuthor: string | null,
   bookText: string
 ): Promise<GeneratedInsight> {
-  console.log('[Premium Pipeline] Starting Stage 0: Book Analysis...');
+  logGeneration('=== PREMIUM PIPELINE START ===', { bookTitle, bookAuthor, textLength: bookText.length });
+  logGeneration('Starting Stage 0: Book Analysis...');
   
   // Stage 0: Analyze the book
-  const analysis = await analyzeBook(bookTitle, bookAuthor || 'Unknown Author', bookText);
-  console.log('[Premium Pipeline] Stage 0 complete. Found', analysis.coreConcepts.length, 'core concepts');
+  const analysis = await timedOperation('generation', 'Stage 0: Book Analysis', async () => {
+    return analyzeBook(bookTitle, bookAuthor || 'Unknown Author', bookText);
+  }, { bookTitle });
+  
+  logGeneration('Stage 0 complete', { 
+    coreConcepts: analysis.coreConcepts.length,
+    themes: analysis.coreConcepts.map(c => c.conceptName)
+  });
 
-  console.log('[Premium Pipeline] Starting Stage 1: Premium Content Generation...');
+  logGeneration('Starting Stage 1: Premium Content Generation...');
   
   // Stage 1: Generate premium content
-  const guide = await generatePremiumContent(analysis, bookText);
-  console.log('[Premium Pipeline] Stage 1 complete. Generated', guide.sections.length, 'sections,', guide.wordCount, 'words');
+  const guide = await timedOperation('generation', 'Stage 1: Premium Content', async () => {
+    return generatePremiumContent(analysis, bookText);
+  }, { bookTitle });
+  
+  logGeneration('Stage 1 complete', { 
+    sections: guide.sections.length, 
+    wordCount: guide.wordCount,
+    sectionTypes: guide.sections.map(s => s.type)
+  });
 
   // Gap Analysis: Check all 9 dimensions and fill missing content
-  console.log('[Premium Pipeline] Starting Gap Analysis & Content Completion...');
+  logGeneration('Starting Gap Analysis & Content Completion...');
   let finalSections = guide.sections;
   let gapAnalysisApplied = false;
   let completenessScore = 100;
@@ -85,7 +100,12 @@ export async function generatePremiumInsight(
       bookText.slice(0, 20000) // First 20k chars as excerpts
     );
 
-    console.log('[Premium Pipeline] Gap Analysis found', gapResult.gapsFound.length, 'gaps. Completeness:', gapResult.completenessScore);
+    logGeneration('Gap Analysis complete', { 
+      gapsFound: gapResult.gapsFound.length, 
+      gaps: gapResult.gapsFound,
+      completenessScore: gapResult.completenessScore,
+      generatedContent: gapResult.generatedContent.length
+    });
 
     if (gapResult.generatedContent.length > 0) {
       // Convert gap-filled content to PremiumSection format
@@ -132,15 +152,18 @@ export async function generatePremiumInsight(
 
       gapAnalysisApplied = true;
       completenessScore = gapResult.completenessScore;
-      console.log('[Premium Pipeline] Gap Analysis applied. Now have', finalSections.length, 'sections');
+      logGeneration('Gap Analysis applied', { totalSections: finalSections.length });
     } else {
       // No gaps found, use original sections
       finalSections = guide.sections;
       completenessScore = gapResult.completenessScore;
-      console.log('[Premium Pipeline] No gaps found. Content is complete.');
+      logGeneration('No gaps found - content is complete', { completenessScore });
     }
   } catch (gapError) {
-    console.error('[Premium Pipeline] Gap Analysis failed, using Stage 1 output:', gapError);
+    logError('generation', 'Gap Analysis failed, using Stage 1 output', { 
+      error: gapError instanceof Error ? gapError.message : String(gapError),
+      stack: gapError instanceof Error ? gapError.stack : undefined
+    });
     finalSections = guide.sections;
   }
 
@@ -168,7 +191,7 @@ export async function generatePremiumInsight(
   }));
 
   // Generate audio script from the content (using built-in LLM for formatting)
-  console.log('[Premium Pipeline] Generating audio script...');
+  logGeneration('Generating audio script...');
   const audioScript = await generateAudioScript(
     { ...guide, sections: finalSections },
     analysis
@@ -179,7 +202,7 @@ export async function generatePremiumInsight(
   let audioDuration: number | undefined;
   
   if (isElevenLabsConfigured() && audioScript.length > 100) {
-    console.log('[Premium Pipeline] Generating audio narration with ElevenLabs...');
+    logGeneration('Generating audio narration with ElevenLabs...', { scriptLength: audioScript.length });
     try {
       // Use a unique ID for the audio file (based on book title hash)
       const bookId = Buffer.from(bookTitle).toString('base64').slice(0, 12).replace(/[^a-zA-Z0-9]/g, '');
@@ -187,16 +210,27 @@ export async function generatePremiumInsight(
       if (audioResult) {
         audioUrl = audioResult.audioUrl;
         audioDuration = audioResult.durationEstimate;
-        console.log('[Premium Pipeline] Audio generated:', audioUrl, 'Duration:', audioDuration, 'seconds');
+        logGeneration('Audio generated', { audioUrl, audioDuration });
       }
     } catch (audioError) {
-      console.error('[Premium Pipeline] ElevenLabs audio generation failed:', audioError);
+      logError('audio', 'ElevenLabs audio generation failed', { 
+        error: audioError instanceof Error ? audioError.message : String(audioError)
+      });
     }
   } else {
-    console.log('[Premium Pipeline] ElevenLabs not configured or script too short, skipping audio generation');
+    logGeneration('Skipping audio generation', { 
+      elevenLabsConfigured: isElevenLabsConfigured(), 
+      scriptLength: audioScript.length 
+    });
   }
 
-  console.log('[Premium Pipeline] Complete. Total:', finalSections.length, 'sections,', totalWordCount, 'words. Gap analysis applied:', gapAnalysisApplied);
+  logGeneration('=== PREMIUM PIPELINE COMPLETE ===', { 
+    totalSections: finalSections.length, 
+    totalWordCount, 
+    gapAnalysisApplied,
+    completenessScore,
+    hasAudio: !!audioUrl
+  });
 
   return {
     title: guide.title,
