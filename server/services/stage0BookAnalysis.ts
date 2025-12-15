@@ -3,14 +3,11 @@
  * 
  * Pre-processing stage that analyzes the source book BEFORE content generation.
  * Produces structured analysis to guide the main generation prompt.
+ * 
+ * Uses the built-in LLM (OpenAI/Gemini) as primary, with Anthropic Claude as fallback.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-});
+import { generateWithClaude, isAnthropicConfigured } from './dualLLMService';
 
 // The 30+ visual types available in Insight Atlas
 export const VISUAL_TYPES = [
@@ -29,26 +26,30 @@ export interface BookAnalysis {
   bookMetadata: {
     title: string;
     author: string;
-    publicationYear: string;
-    wordCountEstimate: string;
+    publicationYear?: string;
+    wordCountEstimate?: string;
   };
   classification: {
     primaryCategory: string;
     secondaryCategories: string[];
-    complexityLevel: 'Accessible' | 'Intermediate' | 'Advanced';
-    frameworkType: string;
+    complexityLevel: 'Accessible' | 'Intermediate' | 'Advanced' | 'Expert';
+    frameworkType: 'Practical' | 'Theoretical' | 'Hybrid' | 'Narrative';
   };
   originStory: {
     present: boolean;
-    location: string;
-    description: string;
-    narrativeTone: string;
+    location?: string;
+    description?: string;
+    narrativeTone?: string;
   };
   structure: {
     totalChapters: number;
     chapterTitles: string[];
-    logicalGroupings: string[];
-    chaptersStandaloneOrSequential: string;
+    logicalGroupings: Array<{
+      groupName: string;
+      chapters: string[];
+      theme: string;
+    }>;
+    chaptersStandaloneOrSequential: 'Standalone' | 'Sequential' | 'Mixed';
   };
   coreConcepts: Array<{
     conceptName: string;
@@ -76,283 +77,182 @@ export interface BookAnalysis {
   };
 }
 
-const STAGE_0_SYSTEM_PROMPT = `You are a book classification and analysis specialist. Your role is to deeply analyze books to prepare them for synthesis. You identify structural patterns, narrative elements, genre conventions, and optimal treatment approaches.
+function buildAnalysisPrompt(bookTitle: string, bookAuthor: string, bookText: string): { system: string; user: string } {
+  const truncatedText = bookText.slice(0, 80000);
+  
+  const systemPrompt = `You are an expert book analyst specializing in extracting structured insights from non-fiction books. Your analysis will guide the generation of comprehensive book guides.
 
-You have access to 30+ visual types for representing concepts:
-- Timeline: For chronological events, historical progressions, life stages
-- FlowDiagram: For processes, cycles, cause-effect chains, decision trees
-- ComparisonMatrix: For before/after, problem/solution, contrasting approaches
-- PieChart: For proportional breakdowns, percentage distributions
-- BarChart: For comparing quantities across categories
-- Infographic: For multi-element overviews combining text and visuals
-- MindMap: For central concept with radiating related ideas
-- Hierarchy: For nested concepts, organizational structures, taxonomies
-- NetworkGraph: For interconnected relationships, systems thinking
-- VennDiagram: For overlapping concepts, shared characteristics
-- ScatterPlot: For correlations, relationships between variables
-- HeatMap: For intensity patterns, frequency distributions
-- Treemap: For hierarchical proportions, nested categories
-- Sunburst: For hierarchical data with proportional segments
-- Sankey: For flow of resources, energy, or information
-- WordCloud: For key themes, frequently mentioned concepts
-- RadarChart: For multi-dimensional assessments, skill profiles
-- GaugeChart: For single metric progress, goal tracking
-- FunnelChart: For stages with decreasing quantities
-- WaterfallChart: For cumulative effects, step-by-step changes
-- AreaChart: For trends over time with volume emphasis
-- BubbleChart: For three-variable comparisons
-- DonutChart: For proportions with central focus
-- StackedBar: For comparing composition across categories
-- LineChart: For trends, progressions, continuous data
-- ForceDirectedGraph: For complex relationship networks
-- CircularPacking: For nested hierarchies with emphasis on leaf nodes
+You must respond with valid JSON only. No markdown, no explanations, just the JSON object.`;
 
-Choose the most appropriate visual type for each concept based on what the content is trying to convey.
+  const userPrompt = `# BOOK ANALYSIS REQUEST
 
-Output your analysis as structured JSON that will guide the content generation stage.`;
+Analyze this book and provide structured analysis in JSON format.
 
-const STAGE_0_USER_PROMPT = `# BOOK ANALYSIS & CLASSIFICATION
+## BOOK INFORMATION
+- Title: ${bookTitle}
+- Author: ${bookAuthor}
 
-Analyze the following book to prepare it for Insight Atlas guide generation.
+## AVAILABLE VISUAL TYPES
+${VISUAL_TYPES.join(', ')}
 
-## ANALYSIS TASKS
+## BOOK TEXT (first 80,000 characters)
+${truncatedText}
 
-### 1. BOOK CLASSIFICATION
+---
 
-Identify the primary and secondary categories:
+## REQUIRED OUTPUT FORMAT
 
-**Primary Categories:**
-- Self-Help/Personal Development
-- Business/Leadership
-- Psychology/Behavioral Science
-- Philosophy/Spirituality
-- Science/Popular Science
-- Biography/Memoir
-- History/Current Affairs
-- Health/Wellness
-- Relationships/Communication
-- Productivity/Skills
-
-**Complexity Level:**
-- Accessible (general audience, minimal prerequisites)
-- Intermediate (some domain knowledge helpful)
-- Advanced (assumes significant background)
-
-### 2. ORIGIN STORY DETECTION
-
-Search the text for:
-- Opening narrative, parable, or founding myth
-- Author's personal story that frames the work
-- Cultural or historical context that opens the book
-- The "aha moment" or discovery that led to this work
-
-### 3. STRUCTURAL ANALYSIS
-
-**Framework Type:**
-- Principle-based (e.g., "7 Habits", "4 Agreements")
-- Process/Stage-based (e.g., "5 Stages of Grief")
-- Model-based (e.g., introduces a conceptual model)
-- Argument-based (builds a case chapter by chapter)
-- Story-driven (narrative carries the concepts)
-- Mixed/Hybrid
-
-### 4. CORE CONCEPTS WITH VISUAL RECOMMENDATIONS
-
-For each major concept, identify:
-- The concept name
-- Which chapter it comes from
-- Brief description
-- The BEST visual type from our 30+ options to represent this concept
-- Why that visual type is appropriate
-- Example domains where this concept applies
-
-### 5. CROSS-REFERENCE OPPORTUNITIES
-
-Identify connections to psychological frameworks, philosophical traditions, neuroscience research, and related popular works.
-
-### 6. TONE ANALYSIS
-
-Analyze the author's voice and recommend the guide tone.
-
-### 7. GENERATION RECOMMENDATIONS
-
-Identify emphasis areas, potential challenges, and unique value opportunities.
-
-## OUTPUT FORMAT
-
-Return your analysis as structured JSON with this exact structure:
-
+Return a JSON object with this exact structure:
 {
   "bookMetadata": {
-    "title": "",
-    "author": "",
-    "publicationYear": "",
-    "wordCountEstimate": ""
+    "title": "string",
+    "author": "string",
+    "publicationYear": "string or null",
+    "wordCountEstimate": "string"
   },
   "classification": {
-    "primaryCategory": "",
-    "secondaryCategories": [],
-    "complexityLevel": "",
-    "frameworkType": ""
+    "primaryCategory": "string (e.g., Self-Help, Business, Psychology)",
+    "secondaryCategories": ["array of strings"],
+    "complexityLevel": "Accessible|Intermediate|Advanced|Expert",
+    "frameworkType": "Practical|Theoretical|Hybrid|Narrative"
   },
   "originStory": {
     "present": true/false,
-    "location": "",
-    "description": "",
-    "narrativeTone": ""
+    "location": "chapter/section where found",
+    "description": "brief description",
+    "narrativeTone": "storytelling style"
   },
   "structure": {
-    "totalChapters": 0,
-    "chapterTitles": [],
-    "logicalGroupings": [],
-    "chaptersStandaloneOrSequential": ""
+    "totalChapters": number,
+    "chapterTitles": ["array of chapter titles"],
+    "logicalGroupings": [
+      {
+        "groupName": "string",
+        "chapters": ["chapter titles in this group"],
+        "theme": "unifying theme"
+      }
+    ],
+    "chaptersStandaloneOrSequential": "Standalone|Sequential|Mixed"
   },
   "coreConcepts": [
     {
-      "conceptName": "",
-      "chapterSource": "",
-      "briefDescription": "",
-      "recommendedVisual": "flowDiagram",
-      "visualRationale": "Why this visual type is best for this concept",
-      "exampleDomains": []
+      "conceptName": "string",
+      "chapterSource": "string",
+      "briefDescription": "string",
+      "recommendedVisual": "one of the visual types listed above",
+      "visualRationale": "why this visual type fits",
+      "exampleDomains": ["workplace", "relationships", etc.]
     }
   ],
   "crossReferences": {
-    "psychologicalFrameworks": [],
-    "philosophicalTraditions": [],
-    "neuroscienceResearch": [],
-    "relatedPopularWorks": []
+    "psychologicalFrameworks": ["CBT", "ACT", etc.],
+    "philosophicalTraditions": ["Stoicism", etc.],
+    "neuroscienceResearch": ["relevant findings"],
+    "relatedPopularWorks": ["similar books"]
   },
   "toneAnalysis": {
-    "authorVoice": "",
-    "recommendedGuideTone": "",
-    "toneNotes": ""
+    "authorVoice": "description of author's writing style",
+    "recommendedGuideTone": "suggested tone for the guide",
+    "toneNotes": "additional notes"
   },
   "generationRecommendations": {
-    "emphasisAreas": [],
-    "potentialChallenges": [],
-    "uniqueValueOpportunities": []
+    "emphasisAreas": ["what to focus on"],
+    "potentialChallenges": ["what might be difficult"],
+    "uniqueValueOpportunities": ["unique angles to explore"]
   }
 }
 
-## BOOK TEXT
+Analyze the book thoroughly and return ONLY the JSON object.`;
 
-`;
+  return { system: systemPrompt, user: userPrompt };
+}
 
 /**
- * Analyze a book to prepare for premium content generation
+ * Analyze a book using the dual LLM approach
  */
 export async function analyzeBook(
   bookTitle: string,
-  bookAuthor: string | null,
+  bookAuthor: string,
   bookText: string
 ): Promise<BookAnalysis> {
-  // Truncate text if too long (keep first 50,000 chars for analysis)
-  const truncatedText = bookText.length > 50000 
-    ? bookText.substring(0, 50000) + '\n\n[Text truncated for analysis...]'
-    : bookText;
-
-  const prompt = STAGE_0_USER_PROMPT + truncatedText + '\n\n---\n\nAnalyze this book and return the structured JSON analysis.';
+  console.log('[Stage 0] Starting book analysis with dual LLM...');
+  console.log('[Stage 0] Anthropic configured:', isAnthropicConfigured());
+  
+  const { system, user } = buildAnalysisPrompt(bookTitle, bookAuthor, bookText);
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
-      temperature: 0.3,
-      system: STAGE_0_SYSTEM_PROMPT,
-      messages: [
-        { role: 'user', content: prompt }
-      ]
-    });
+    // Use Anthropic Claude as primary for book analysis
+    const response = await generateWithClaude(system, user, 8000);
+    console.log('[Stage 0] Analysis completed using:', response.provider);
 
-    // Extract text content
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in response');
-    }
-
-    // Parse JSON from response
-    let jsonStr = textContent.text;
+    // Parse the JSON response
+    let jsonStr = response.content;
     
-    // Remove markdown code blocks if present
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    // Handle markdown code blocks
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
-      jsonStr = jsonMatch[1];
+      jsonStr = jsonMatch[1].trim();
     }
+
+    // Clean up any leading/trailing whitespace
+    jsonStr = jsonStr.trim();
 
     const analysis = JSON.parse(jsonStr) as BookAnalysis;
-
-    // Fill in metadata if not detected
-    if (!analysis.bookMetadata.title) {
-      analysis.bookMetadata.title = bookTitle;
-    }
-    if (!analysis.bookMetadata.author && bookAuthor) {
-      analysis.bookMetadata.author = bookAuthor;
-    }
-
-    // Validate visual types
-    for (const concept of analysis.coreConcepts) {
-      if (!VISUAL_TYPES.includes(concept.recommendedVisual as VisualType)) {
-        concept.recommendedVisual = 'flowDiagram'; // Default fallback
-      }
-    }
-
+    
+    console.log('[Stage 0] Extracted', analysis.coreConcepts?.length || 0, 'core concepts');
+    
     return analysis;
   } catch (error) {
-    console.error('Stage 0 analysis error:', error);
+    console.error('[Stage 0] Analysis error:', error);
     
     // Return a minimal analysis on error
     return {
       bookMetadata: {
         title: bookTitle,
-        author: bookAuthor || 'Unknown',
-        publicationYear: '',
-        wordCountEstimate: String(bookText.split(/\s+/).length)
+        author: bookAuthor,
+        wordCountEstimate: String(bookText.split(/\s+/).length),
       },
       classification: {
-        primaryCategory: 'Self-Help/Personal Development',
+        primaryCategory: 'Non-Fiction',
         secondaryCategories: [],
-        complexityLevel: 'Accessible',
-        frameworkType: 'Mixed/Hybrid'
+        complexityLevel: 'Intermediate',
+        frameworkType: 'Practical',
       },
       originStory: {
         present: false,
-        location: '',
-        description: '',
-        narrativeTone: ''
       },
       structure: {
-        totalChapters: 0,
+        totalChapters: 10,
         chapterTitles: [],
         logicalGroupings: [],
-        chaptersStandaloneOrSequential: 'standalone'
+        chaptersStandaloneOrSequential: 'Sequential',
       },
       coreConcepts: [
         {
-          conceptName: 'Core Thesis',
-          chapterSource: 'Introduction',
-          briefDescription: 'The main argument of the book',
-          recommendedVisual: 'mindMap',
-          visualRationale: 'Central concept with radiating ideas',
-          exampleDomains: ['Personal', 'Professional']
-        }
+          conceptName: 'Main Concept',
+          chapterSource: 'Chapter 1',
+          briefDescription: 'The primary concept from the book',
+          recommendedVisual: 'flowDiagram',
+          visualRationale: 'Shows the process flow',
+          exampleDomains: ['general'],
+        },
       ],
       crossReferences: {
         psychologicalFrameworks: [],
         philosophicalTraditions: [],
         neuroscienceResearch: [],
-        relatedPopularWorks: []
+        relatedPopularWorks: [],
       },
       toneAnalysis: {
-        authorVoice: 'Conversational/Accessible',
-        recommendedGuideTone: 'Accessible Professional',
-        toneNotes: ''
+        authorVoice: 'Informative',
+        recommendedGuideTone: 'Accessible',
+        toneNotes: 'Standard non-fiction tone',
       },
       generationRecommendations: {
-        emphasisAreas: ['Key concepts', 'Practical applications'],
+        emphasisAreas: ['Key concepts'],
         potentialChallenges: [],
-        uniqueValueOpportunities: []
-      }
+        uniqueValueOpportunities: [],
+      },
     };
   }
 }

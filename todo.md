@@ -260,3 +260,10 @@
 - [x] Show real-time progress during insight generation (4-stage progress display)
 - [x] Display generated sections as they complete (section/word count display)
 - [x] Navigate to insight view when complete (View Insights button)
+## LLM & Audio Integration
+- [x] Request ANTHROPIC_API_KEY through webdev secrets system
+- [x] Make Anthropic Claude the PRIMARY LLM for content generation
+- [x] Use built-in LLM (OpenAI/Gemini) for formatting and audio scripts
+- [x] Ensure Claude handles Stage 0, Stage 1, and Gap Analysis
+- [x] Integrate ElevenLabs for text-to-speech audio generation (elevenLabsService.ts)
+- [x] Wire ElevenLabs audio generation into the insight pipeline (premiumInsightPipeline.ts)

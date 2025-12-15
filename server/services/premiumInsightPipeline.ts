@@ -14,6 +14,7 @@ import { analyzeBook, BookAnalysis } from './stage0BookAnalysis';
 import { generatePremiumContent, PremiumGuide, PremiumSection } from './stage1ContentGeneration';
 import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
+import { generateAudioNarration, isElevenLabsConfigured, AudioGenerationResult } from './elevenLabsService';
 
 export interface InsightSection {
   id: string;
@@ -32,6 +33,8 @@ export interface GeneratedInsight {
   sections: InsightSection[];
   tableOfContents: Array<{ id: string; title: string; type: string }>;
   audioScript: string;
+  audioUrl?: string;
+  audioDuration?: number;
   wordCount: number;
   bookAnalysis: BookAnalysis;
   gapAnalysisApplied: boolean;
@@ -49,7 +52,7 @@ export async function generatePremiumInsight(
   console.log('[Premium Pipeline] Starting Stage 0: Book Analysis...');
   
   // Stage 0: Analyze the book
-  const analysis = await analyzeBook(bookTitle, bookAuthor, bookText);
+  const analysis = await analyzeBook(bookTitle, bookAuthor || 'Unknown Author', bookText);
   console.log('[Premium Pipeline] Stage 0 complete. Found', analysis.coreConcepts.length, 'core concepts');
 
   console.log('[Premium Pipeline] Starting Stage 1: Premium Content Generation...');
@@ -164,12 +167,34 @@ export async function generatePremiumInsight(
     type: s.type
   }));
 
-  // Generate audio script from the content
+  // Generate audio script from the content (using built-in LLM for formatting)
   console.log('[Premium Pipeline] Generating audio script...');
   const audioScript = await generateAudioScript(
     { ...guide, sections: finalSections },
     analysis
   );
+
+  // Generate audio narration using ElevenLabs if configured
+  let audioUrl: string | undefined;
+  let audioDuration: number | undefined;
+  
+  if (isElevenLabsConfigured() && audioScript.length > 100) {
+    console.log('[Premium Pipeline] Generating audio narration with ElevenLabs...');
+    try {
+      // Use a unique ID for the audio file (based on book title hash)
+      const bookId = Buffer.from(bookTitle).toString('base64').slice(0, 12).replace(/[^a-zA-Z0-9]/g, '');
+      const audioResult = await generateAudioNarration(audioScript, bookId);
+      if (audioResult) {
+        audioUrl = audioResult.audioUrl;
+        audioDuration = audioResult.durationEstimate;
+        console.log('[Premium Pipeline] Audio generated:', audioUrl, 'Duration:', audioDuration, 'seconds');
+      }
+    } catch (audioError) {
+      console.error('[Premium Pipeline] ElevenLabs audio generation failed:', audioError);
+    }
+  } else {
+    console.log('[Premium Pipeline] ElevenLabs not configured or script too short, skipping audio generation');
+  }
 
   console.log('[Premium Pipeline] Complete. Total:', finalSections.length, 'sections,', totalWordCount, 'words. Gap analysis applied:', gapAnalysisApplied);
 
@@ -180,6 +205,8 @@ export async function generatePremiumInsight(
     sections: finalSections,
     tableOfContents,
     audioScript,
+    audioUrl,
+    audioDuration,
     wordCount: totalWordCount,
     bookAnalysis: analysis,
     gapAnalysisApplied,

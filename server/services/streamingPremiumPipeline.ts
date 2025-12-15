@@ -10,15 +10,11 @@
  * Uses Anthropic Claude for content generation with streaming support.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { BookAnalysis, VisualType, VISUAL_TYPES } from './stage0BookAnalysis';
 import { PremiumSection, PremiumGuide } from './stage1ContentGeneration';
 import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-});
+import { generateWithClaude, generateWithBuiltinLLM, isAnthropicConfigured } from './dualLLMService';
 
 export interface StreamingProgress {
   type: 'stage' | 'progress' | 'section' | 'complete' | 'error';
@@ -320,20 +316,15 @@ Return a JSON object with:
   "generationRecommendations": { "emphasisAreas": [], "potentialChallenges": [], "uniqueValueOpportunities": [] }
 }`;
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
-    temperature: 0.5,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }]
-  });
+  console.log('[Streaming Stage 0] Using Anthropic Claude');
+  
+  const response = await generateWithClaude(
+    systemPrompt,
+    userPrompt,
+    8000
+  );
 
-  const textContent = response.content.find(c => c.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in Stage 0 response');
-  }
-
-  let jsonStr = textContent.text;
+  let jsonStr = response.content;
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1];
@@ -388,76 +379,36 @@ ${truncatedText}
 
 Generate all sections now, emitting each as a separate JSON line.`;
 
+  console.log('[Streaming Stage 1] Using Anthropic Claude for content generation');
+  
   try {
-    const stream = await anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
-      temperature: 0.7,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
-    });
+    // Use Anthropic Claude as primary for content generation
+    const response = await generateWithClaude(
+      systemPrompt,
+      userPrompt,
+      16000
+    );
 
-    let fullContent = '';
     let sectionCount = 0;
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullContent += event.delta.text;
-
-        // Try to parse complete JSON lines
-        const lines = fullContent.split('\n');
-        for (let i = 0; i < lines.length - 1; i++) {
-          const line = lines[i].trim();
-          if (line.startsWith('{') && line.endsWith('}')) {
-            try {
-              const parsed = JSON.parse(line);
-              
-              if (parsed.type === 'section' && parsed.section) {
-                sectionCount++;
-                const section: PremiumSection = {
-                  id: parsed.section.id || `section-${sectionCount}`,
-                  type: parsed.section.type || 'conceptExplanation',
-                  title: parsed.section.title || `Section ${sectionCount}`,
-                  content: parsed.section.content || '',
-                  visualType: parsed.section.visualType,
-                  visualData: parsed.section.visualData,
-                  metadata: parsed.section.metadata
-                };
-                yield { type: 'section', section };
-              } else if (parsed.type === 'complete') {
-                yield { type: 'progress', percent: 70, message: 'Content generation complete' };
-              }
-            } catch (e) {
-              // Not valid JSON yet, continue
-            }
-          }
-        }
-        // Keep the last incomplete line
-        fullContent = lines[lines.length - 1];
-      }
-    }
-
-    // If streaming didn't produce structured output, fall back to parsing full response
-    if (sectionCount === 0) {
-      const finalResponse = await stream.finalMessage();
-      const textContent = finalResponse.content.find(c => c.type === 'text');
-      const content = textContent?.type === 'text' ? textContent.text : '';
+    const content = response.content;
       
-      // Try to parse as single JSON with sections array
-      let jsonContent = content;
-      if (jsonContent.includes('```json')) {
-        jsonContent = jsonContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      }
-      const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.sections && Array.isArray(parsed.sections)) {
-          for (const s of parsed.sections) {
-            yield { type: 'section', section: s as PremiumSection };
-          }
+    // Try to parse as single JSON with sections array
+    let jsonContent = content;
+    if (jsonContent.includes('```json')) {
+      jsonContent = jsonContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    }
+    const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.sections && Array.isArray(parsed.sections)) {
+        for (const s of parsed.sections) {
+          sectionCount++;
+          yield { type: 'section', section: s as PremiumSection };
         }
       }
     }
+    
+    yield { type: 'progress', percent: 70, message: `Generated ${sectionCount} sections` };
 
   } catch (error) {
     console.error('[Stage 1 Streaming] Error:', error);

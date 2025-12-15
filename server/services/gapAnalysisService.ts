@@ -5,11 +5,7 @@
  * For each gap found, it generates the missing content immediately.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { generateWithClaude, generateWithBuiltinLLM, isAnthropicConfigured } from './dualLLMService';
 
 interface GeneratedSection {
   type: string;
@@ -192,26 +188,21 @@ export async function runGapAnalysis(
     .replace('{BOOK_AUTHOR}', bookAuthor || 'Unknown')
     .replace('{BOOK_EXCERPTS}', bookExcerpts.slice(0, 15000));
 
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
-      temperature: 0.7,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+  console.log('[Gap Analysis] Using Anthropic Claude for gap analysis');
+  console.log('[Gap Analysis] Anthropic configured:', isAnthropicConfigured());
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
-    }
+  try {
+    // Use Anthropic Claude as primary for gap analysis
+    const response = await generateWithClaude(
+      'You are a content completion specialist. Analyze the generated guide and fill any gaps. Return valid JSON only.',
+      prompt,
+      16000
+    );
+
+    console.log('[Gap Analysis] Completed using:', response.provider);
 
     // Parse the JSON response
-    let jsonStr = content.text;
+    let jsonStr = response.content;
     
     // Handle markdown code blocks
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -341,21 +332,18 @@ Format each example as:
 Return ONLY the examples, no other text.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      temperature: 0.8,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = response.content[0];
-    if (content.type !== 'text') return [];
+    // Use Claude for generating high-quality examples
+    const response = await generateWithClaude(
+      'You are an expert at creating relatable, specific examples for concepts. Return only the examples, no other text.',
+      prompt,
+      4000
+    );
 
     // Split by "**In Practice:**" to get individual examples
-    const examples = content.text
+    const examples = response.content
       .split(/\*\*In Practice:\*\*/)
-      .filter((e) => e.trim().length > 50)
-      .map((e) => `**In Practice:** ${e.trim()}`);
+      .filter((e: string) => e.trim().length > 50)
+      .map((e: string) => `**In Practice:** ${e.trim()}`);
 
     return examples;
   } catch (error) {
@@ -393,22 +381,17 @@ Format:
 Return ONLY the numbered actions, no other text.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      temperature: 0.7,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    // Use Claude for generating actionable steps
+    const response = await generateWithClaude(
+      'You are an expert at creating actionable steps. Return only the numbered actions, no other text.',
+      prompt,
+      1000
+    );
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      return { title: conceptName, actions: [] };
-    }
-
-    const actions = content.text
+    const actions = response.content
       .split(/\d+\.\s+/)
-      .filter((a) => a.trim().length > 10)
-      .map((a) => a.trim());
+      .filter((a: string) => a.trim().length > 10)
+      .map((a: string) => a.trim());
 
     return { title: conceptName, actions };
   } catch (error) {
@@ -447,19 +430,14 @@ Description: ${conceptDescription}
 Return ONLY valid JSON, no other text.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      temperature: 0.5,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    // Use Claude for generating visual frameworks
+    const response = await generateWithClaude(
+      'You are an expert at creating visual frameworks. Return only valid JSON, no other text.',
+      prompt,
+      2000
+    );
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      return { type: preferredType, data: {} };
-    }
-
-    let jsonStr = content.text;
+    let jsonStr = response.content;
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();

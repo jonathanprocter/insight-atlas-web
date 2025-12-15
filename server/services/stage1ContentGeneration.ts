@@ -6,12 +6,8 @@
  * Executive Summary, Insight Atlas Notes, Action Boxes, Visual Frameworks, etc.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { BookAnalysis, VisualType } from './stage0BookAnalysis';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-});
+import { generateWithClaude, isAnthropicConfigured } from './dualLLMService';
 
 export interface PremiumSection {
   id: string;
@@ -283,25 +279,21 @@ export async function generatePremiumContent(
 ): Promise<PremiumGuide> {
   const prompt = buildStage1Prompt(analysis, bookText);
 
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
-      temperature: 0.7,
-      system: STAGE_1_SYSTEM_PROMPT,
-      messages: [
-        { role: 'user', content: prompt }
-      ]
-    });
+  console.log('[Stage 1] Using Anthropic Claude for content generation');
+  console.log('[Stage 1] Anthropic configured:', isAnthropicConfigured());
 
-    // Extract text content
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in response');
-    }
+  try {
+    // Use Anthropic Claude as primary for premium content generation
+    const response = await generateWithClaude(
+      STAGE_1_SYSTEM_PROMPT,
+      prompt,
+      16000
+    );
+
+    console.log('[Stage 1] Content generated using:', response.provider);
 
     // Parse JSON from response
-    let jsonStr = textContent.text;
+    let jsonStr = response.content;
     
     // Remove markdown code blocks if present
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
