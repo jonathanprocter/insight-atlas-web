@@ -190,3 +190,11 @@
 - [x] Investigated and found insight generation works correctly
 - [x] Claude API integration working properly
 - [x] Generated comprehensive insights for Awareness Games book
+
+
+## Cover Page and Table of Contents
+- [x] Add cover page with Insight Atlas logo to insight display
+- [x] Add table of contents with clickable navigation to all sections
+- [x] Update PDF export to include cover page and TOC
+- [x] Add visual components: FlowDiagram, ComparisonTable, ActionList, QuoteBlock, ConceptCard, ChapterCard, TakeawayBox
+- [x] Match comprehensive format from StrongGround guide PDF

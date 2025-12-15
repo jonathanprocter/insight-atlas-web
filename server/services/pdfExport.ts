@@ -48,6 +48,12 @@ function generatePremiumHTML(options: PDFExportOptions): string {
   const sectionHTML = sections.map(section => renderSection(section)).join("\n");
   const themesHTML = keyThemes.map(theme => `<span class="theme-tag">${theme}</span>`).join("");
   
+  // Generate table of contents from sections
+  const headingSections = sections.filter(s => s.type === 'heading');
+  const tocHTML = headingSections.map((section, i) => 
+    `<li><a href="#section-${i}">${section.content}</a></li>`
+  ).join('\n');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -449,6 +455,138 @@ function generatePremiumHTML(options: PDFExportOptions): string {
       color: var(--warm-gray);
     }
     
+    /* Cover Page Styles */
+    .cover-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--cream) 0%, #F5EFE0 100%);
+      border: 4px solid var(--gold);
+      margin: 20px;
+      padding: 60px 40px;
+      text-align: center;
+      page-break-after: always;
+    }
+    
+    .cover-content {
+      max-width: 600px;
+    }
+    
+    .cover-logo {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 40px;
+      object-fit: contain;
+    }
+    
+    .cover-title {
+      font-size: 2.8rem;
+      font-weight: 700;
+      color: var(--charcoal);
+      margin-bottom: 32px;
+      line-height: 1.2;
+    }
+    
+    .cover-book-info {
+      margin-bottom: 32px;
+    }
+    
+    .cover-book-info p {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      color: var(--warm-gray);
+    }
+    
+    .cover-book-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem !important;
+      font-style: italic;
+      color: var(--charcoal) !important;
+      margin: 8px 0;
+    }
+    
+    .cover-author {
+      font-size: 1.1rem !important;
+    }
+    
+    .cover-themes {
+      margin: 32px 0;
+    }
+    
+    .cover-date {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      color: var(--gold-dark);
+      margin: 32px 0;
+    }
+    
+    .cover-branding {
+      margin-top: 48px;
+      padding-top: 32px;
+      border-top: 1px solid var(--gold);
+    }
+    
+    .cover-branding p {
+      font-size: 1.2rem;
+      color: var(--gold);
+      font-weight: 600;
+    }
+    
+    .cover-tagline {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem !important;
+      color: var(--warm-gray) !important;
+      font-weight: 400 !important;
+      margin-top: 8px;
+    }
+    
+    /* Table of Contents Styles */
+    .toc-page {
+      min-height: 80vh;
+      padding: 60px 40px;
+      background: var(--cream);
+      page-break-after: always;
+    }
+    
+    .toc-title {
+      font-size: 2.2rem;
+      font-weight: 600;
+      color: var(--charcoal);
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    
+    .toc-divider {
+      text-align: center;
+      color: var(--gold);
+      font-size: 1rem;
+      letter-spacing: 0.5em;
+      margin-bottom: 40px;
+    }
+    
+    .toc-list {
+      max-width: 500px;
+      margin: 0 auto;
+      padding-left: 24px;
+    }
+    
+    .toc-list li {
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+    }
+    
+    .toc-list a {
+      color: var(--charcoal);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+    
+    .toc-list a:hover {
+      border-bottom-color: var(--gold);
+    }
+
     @media print {
       body {
         background: white;
@@ -457,6 +595,14 @@ function generatePremiumHTML(options: PDFExportOptions): string {
       .container {
         max-width: 100%;
         padding: 20px;
+      }
+      
+      .cover-page {
+        page-break-after: always;
+      }
+      
+      .toc-page {
+        page-break-after: always;
       }
       
       .section {
@@ -470,6 +616,39 @@ function generatePremiumHTML(options: PDFExportOptions): string {
   </style>
 </head>
 <body>
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div class="cover-content">
+      <img src="/insight-atlas-logo.png" alt="Insight Atlas" class="cover-logo" onerror="this.style.display='none'">
+      <h1 class="cover-title">${escapeHtml(title)}</h1>
+      <div class="cover-book-info">
+        <p>Insights from</p>
+        <p class="cover-book-title">${escapeHtml(bookTitle)}</p>
+        ${author ? `<p class="cover-author">by ${escapeHtml(author)}</p>` : ""}
+      </div>
+      <div class="cover-themes">
+        ${themesHTML}
+      </div>
+      <div class="cover-date">
+        <p>Generated on ${generatedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+      </div>
+      <div class="cover-branding">
+        <p>Insight Atlas</p>
+        <p class="cover-tagline">Transform Books Into Wisdom</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table of Contents -->
+  <div class="toc-page">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-divider">◆ ◆ ◆</div>
+    <ol class="toc-list">
+      <li><a href="#executive-summary">Executive Summary</a></li>
+      ${tocHTML}
+    </ol>
+  </div>
+
   <div class="container">
     <header class="header">
       <h1>${escapeHtml(title)}</h1>
@@ -480,7 +659,7 @@ function generatePremiumHTML(options: PDFExportOptions): string {
       </div>
     </header>
     
-    <section class="summary">
+    <section id="executive-summary" class="summary">
       <h2>Executive Summary</h2>
       <p>${escapeHtml(summary)}</p>
     </section>

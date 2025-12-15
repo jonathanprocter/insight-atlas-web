@@ -1,10 +1,21 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { ExportModal } from "@/components/ExportModal";
+import { InsightCoverPage, TableOfContents } from "@/components/InsightCoverPage";
+import { 
+  FlowDiagram, 
+  ComparisonTable, 
+  ActionList, 
+  QuoteBlock, 
+  ConceptCard, 
+  ChapterCard,
+  TakeawayBox,
+  MetricDisplay
+} from "@/components/InsightVisuals";
 import { toast } from "sonner";
 import {
   BookOpen,
@@ -27,6 +38,8 @@ import {
   Brain,
   SkipBack,
   SkipForward,
+  ChevronUp,
+  List,
 } from "lucide-react";
 
 export default function InsightPage() {
@@ -34,10 +47,18 @@ export default function InsightPage() {
   const params = useParams<{ id: string }>();
   const insightId = parseInt(params.id || "0");
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [showCover, setShowCover] = useState(true);
+  const [showTOC, setShowTOC] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const { data: insight, isLoading: insightLoading } = trpc.insights.get.useQuery(
     { id: insightId },
     { enabled: !!insightId }
+  );
+
+  const { data: book } = trpc.books.get.useQuery(
+    { id: insight?.bookId || 0 },
+    { enabled: !!insight?.bookId }
   );
 
   const { data: voices } = trpc.audio.voices.useQuery();
@@ -48,6 +69,31 @@ export default function InsightPage() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Generate section IDs for navigation
+  const sections = useMemo(() => {
+    if (!insight?.contentBlocks) return [];
+    return insight.contentBlocks
+      .filter((block: any) => block.blockType === 'heading' || block.type === 'heading')
+      .map((block: any, index: number) => ({
+        id: `section-${index}`,
+        title: block.content || block.title || `Section ${index + 1}`,
+        type: block.sectionType || block.type || 'content'
+      }));
+  }, [insight?.contentBlocks]);
+
+  // Scroll tracking for back-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 500);
+      // Hide cover after scrolling past it
+      if (window.scrollY > 200) {
+        setShowCover(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const generateAudioMutation = trpc.audio.generate.useMutation({
     onSuccess: () => {
@@ -122,6 +168,18 @@ export default function InsightPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setShowTOC(false);
+    }
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (insightLoading) {
     return <LoadingState />;
   }
@@ -132,7 +190,18 @@ export default function InsightPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Cover Page */}
+      {showCover && (
+        <InsightCoverPage
+          title={insight.title}
+          bookTitle={book?.title}
+          author={book?.author || undefined}
+          createdAt={insight.createdAt}
+          keyThemes={insight.keyThemes}
+        />
+      )}
+
+      {/* Sticky Header */}
       <header className="border-b border-border bg-card sticky top-0 z-50 safe-area-top">
         <div className="container py-3 md:py-4">
           <div className="flex items-center justify-between">
@@ -141,9 +210,7 @@ export default function InsightPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
-                </div>
+                <img src="/insight-atlas-logo.png" alt="Insight Atlas" className="w-8 h-8 md:w-10 md:h-10 object-contain" />
                 <span className="font-serif text-lg md:text-xl font-semibold text-foreground hidden sm:block">
                   Insight Atlas
                 </span>
@@ -152,6 +219,17 @@ export default function InsightPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              {/* TOC Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTOC(!showTOC)}
+                className="touch-target text-xs md:text-sm"
+              >
+                <List className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Contents</span>
+              </Button>
+
               {!insight.audioUrl ? (
                 <>
                   {/* Voice Selection */}
@@ -199,6 +277,23 @@ export default function InsightPage() {
           </div>
         </div>
       </header>
+
+      {/* Table of Contents Sidebar */}
+      {showTOC && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowTOC(false)}>
+          <div 
+            className="absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-card border-l border-border shadow-xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-border sticky top-0 bg-card">
+              <h3 className="font-serif text-lg font-semibold">Table of Contents</h3>
+            </div>
+            <div className="p-4">
+              <TableOfContents sections={sections} onNavigate={scrollToSection} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Audio Player Bar - Mobile Optimized */}
       {insight.audioUrl && (
@@ -261,12 +356,18 @@ export default function InsightPage() {
 
       {/* Main Content */}
       <main className="container py-6 md:py-12 safe-area-bottom">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Title Section */}
           <div className="premium-border p-4 md:p-8 mb-6 md:mb-8 text-center">
             <h1 className="font-serif text-2xl md:text-4xl font-bold text-foreground mb-3 md:mb-4">
               {insight.title}
             </h1>
+            {book && (
+              <p className="text-muted-foreground mb-2">
+                Insights from <span className="italic">"{book.title}"</span>
+                {book.author && <span> by {book.author}</span>}
+              </p>
+            )}
             <div className="flex items-center justify-center gap-2 text-sm md:text-base text-muted-foreground">
               <Clock className="w-4 h-4" />
               <span>{new Date(insight.createdAt).toLocaleDateString("en-US", {
@@ -309,19 +410,30 @@ export default function InsightPage() {
           {/* Content Blocks */}
           <div className="space-y-4 md:space-y-6">
             {insight.contentBlocks?.map((block: any, index: number) => (
-              <ContentBlock key={block.id || index} block={block} />
+              <ContentBlock key={block.id || index} block={block} sectionIndex={index} />
             ))}
           </div>
 
           {/* Footer */}
           <div className="section-divider mt-8 md:mt-12"></div>
           <div className="text-center py-6 md:py-8">
+            <img src="/insight-atlas-logo.png" alt="Insight Atlas" className="w-16 h-16 mx-auto mb-4 opacity-50" />
             <p className="font-serif text-base md:text-lg text-muted-foreground italic">
               Generated by Insight Atlas
             </p>
           </div>
         </div>
       </main>
+
+      {/* Back to Top Button */}
+      {showBackToTop && (
+        <Button
+          className="fixed bottom-6 right-6 z-50 rounded-full w-12 h-12 shadow-lg"
+          onClick={scrollToTop}
+        >
+          <ChevronUp className="w-6 h-6" />
+        </Button>
+      )}
 
       {/* Export Modal */}
       <ExportModal
@@ -334,13 +446,19 @@ export default function InsightPage() {
   );
 }
 
-function ContentBlock({ block }: { block: any }) {
-  const type = block.blockType;
+function ContentBlock({ block, sectionIndex }: { block: any; sectionIndex: number }) {
+  const type = block.blockType || block.type;
+
+  // Generate section ID for navigation
+  const sectionId = type === 'heading' ? `section-${sectionIndex}` : undefined;
 
   switch (type) {
     case "heading":
       return (
-        <h2 className="font-serif text-xl md:text-2xl font-bold text-foreground mt-6 md:mt-8 mb-3 md:mb-4 pb-2 border-b-2 border-primary">
+        <h2 
+          id={sectionId}
+          className="font-serif text-xl md:text-2xl font-bold text-foreground mt-8 md:mt-10 mb-3 md:mb-4 pb-2 border-b-2 border-primary scroll-mt-20"
+        >
           {block.content}
         </h2>
       );
@@ -354,163 +472,121 @@ function ContentBlock({ block }: { block: any }) {
 
     case "quote":
       return (
-        <blockquote className="quote-block">
-          <Quote className="w-6 h-6 md:w-8 md:h-8 text-primary/30 mb-2" />
-          <p className="text-lg md:text-xl italic text-foreground">{block.content}</p>
-          {block.title && (
-            <p className="text-xs md:text-sm text-muted-foreground mt-2 md:mt-3">— {block.title}</p>
-          )}
-        </blockquote>
+        <QuoteBlock 
+          quote={block.content} 
+          attribution={block.title}
+          context={block.context}
+        />
       );
 
-    case "authorSpotlight":
+    case "bulletList":
+    case "numberedList":
       return (
-        <div className="author-spotlight">
-          <div className="flex items-start gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-            </div>
-            <p className="text-sm md:text-base text-foreground">{block.content}</p>
-          </div>
-        </div>
+        <ActionList 
+          title={block.title || "Key Points"} 
+          items={block.items || []}
+          icon={type === "numberedList" ? "→" : "•"}
+        />
       );
 
     case "insightNote":
       return (
-        <div className="insight-note">
-          <div className="flex items-center gap-2 mb-2 md:mb-3">
-            <Lightbulb className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-            <span className="font-medium text-primary uppercase text-xs md:text-sm tracking-wide">
-              {block.title || "Key Insight"}
-            </span>
-          </div>
-          <p className="text-sm md:text-base text-foreground">{block.content}</p>
-        </div>
+        <ConceptCard
+          title={block.title || "Key Insight"}
+          definition={block.content}
+          example={block.example}
+          icon="💡"
+        />
       );
 
-    case "alternativePerspective":
+    case "authorSpotlight":
       return (
-        <div className="alt-perspective">
-          <div className="flex items-center gap-2 mb-2 md:mb-3">
-            <Brain className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-            <span className="font-medium text-muted-foreground uppercase text-xs md:text-sm tracking-wide">
-              Alternative Perspective
-            </span>
-          </div>
-          <p className="text-sm md:text-base text-foreground">{block.content}</p>
+        <div className="premium-border p-4 md:p-6 my-6">
+          <h3 className="font-serif text-lg md:text-xl font-semibold text-foreground mb-3 flex items-center gap-2">
+            <User className="w-5 h-5 text-primary" />
+            About the Author
+          </h3>
+          <p className="text-foreground leading-relaxed">{block.content}</p>
         </div>
       );
 
     case "researchInsight":
       return (
-        <div className="research-insight">
-          <div className="flex items-center gap-2 mb-2 md:mb-3">
-            <FlaskConical className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-            <span className="font-medium text-blue-600 uppercase text-xs md:text-sm tracking-wide">
-              Research Insight
-            </span>
-          </div>
-          <p className="text-sm md:text-base text-foreground">{block.content}</p>
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6 my-6">
+          <h3 className="font-serif text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-primary" />
+            Research & Evidence
+          </h3>
+          <p className="text-foreground leading-relaxed">{block.content}</p>
+        </div>
+      );
+
+    case "alternativePerspective":
+      return (
+        <div className="bg-muted/30 border-l-4 border-primary/50 p-4 md:p-6 my-6 rounded-r-lg">
+          <h3 className="font-serif text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            Alternative Perspectives
+          </h3>
+          <p className="text-foreground leading-relaxed">{block.content}</p>
         </div>
       );
 
     case "keyTakeaways":
-      const takeaways = block.listItems || [];
       return (
-        <div className="key-takeaways">
-          <div className="flex items-center gap-2 mb-3 md:mb-4">
-            <ListChecks className="w-4 h-4 md:w-5 md:h-5" />
-            <span className="font-medium uppercase text-xs md:text-sm tracking-wide">
-              Key Takeaways
-            </span>
-          </div>
-          <ul className="space-y-2 md:space-y-3">
-            {takeaways.map((item: string, i: number) => (
-              <li key={i} className="flex items-start gap-2 md:gap-3 text-sm md:text-base">
-                <span className="text-base md:text-lg">✓</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <TakeawayBox 
+          title="Key Takeaways" 
+          takeaways={block.items || []}
+        />
       );
 
-    case "exercise":
+    case "flowDiagram":
       return (
-        <div className="exercise-box">
-          <div className="flex items-center gap-2 mb-2 md:mb-3">
-            <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-pink-600" />
-            <span className="font-medium text-pink-600 uppercase text-xs md:text-sm tracking-wide">
-              {block.title || "Exercise"}
-            </span>
-          </div>
-          <p className="text-sm md:text-base text-foreground">{block.content}</p>
-        </div>
+        <FlowDiagram 
+          title={block.title || "Process Flow"} 
+          steps={block.steps || []}
+        />
       );
 
-    case "bulletList":
-      const bulletItems = block.listItems || [];
+    case "comparisonTable":
       return (
-        <Card className="premium-card">
-          <CardContent className="p-4 md:p-6">
-            {block.title && (
-              <h4 className="font-serif text-base md:text-lg font-semibold text-foreground mb-3 md:mb-4">
-                {block.title}
-              </h4>
-            )}
-            <ul className="space-y-2">
-              {bulletItems.map((item: string, i: number) => (
-                <li key={i} className="flex items-start gap-2 md:gap-3 text-sm md:text-base text-foreground">
-                  <span className="text-primary mt-0.5">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <ComparisonTable
+          title={block.title || "Comparison"}
+          leftHeader={block.leftHeader || "Positive"}
+          rightHeader={block.rightHeader || "Negative"}
+          rows={block.rows || []}
+        />
       );
 
-    case "numberedList":
-      const numberedItems = block.listItems || [];
+    case "chapterBreakdown":
       return (
-        <Card className="premium-card">
-          <CardContent className="p-4 md:p-6">
-            {block.title && (
-              <h4 className="font-serif text-base md:text-lg font-semibold text-foreground mb-3 md:mb-4">
-                {block.title}
-              </h4>
-            )}
-            <ol className="space-y-2">
-              {numberedItems.map((item: string, i: number) => (
-                <li key={i} className="flex items-start gap-2 md:gap-3 text-sm md:text-base text-foreground">
-                  <span className="text-primary font-medium">{i + 1}.</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
+        <ChapterCard
+          chapterNumber={block.chapterNumber || ""}
+          title={block.title || "Chapter Summary"}
+          summary={block.content || block.summary || ""}
+          keyPoints={block.keyPoints}
+        />
       );
-
-    case "sectionDivider":
-      return <div className="section-divider"></div>;
 
     default:
-      return block.content ? (
-        <p className="text-foreground text-base md:text-lg leading-relaxed">{block.content}</p>
-      ) : null;
+      // Default paragraph rendering
+      if (block.content) {
+        return (
+          <p className="text-foreground text-base md:text-lg leading-relaxed">
+            {block.content}
+          </p>
+        );
+      }
+      return null;
   }
 }
 
 function LoadingState() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background safe-area-top safe-area-bottom">
-      <div className="text-center px-4">
-        <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 relative">
-          <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <p className="text-muted-foreground font-serif text-base md:text-lg">Loading insights...</p>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading insights...</p>
       </div>
     </div>
   );
@@ -518,12 +594,12 @@ function LoadingState() {
 
 function NotFoundState({ onBack }: { onBack: () => void }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background safe-area-top safe-area-bottom">
-      <div className="text-center px-4">
-        <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 text-muted-foreground" />
-        <h2 className="font-serif text-xl md:text-2xl font-semibold text-foreground mb-2">Insight Not Found</h2>
-        <p className="text-sm md:text-base text-muted-foreground mb-4">The insight you're looking for doesn't exist.</p>
-        <Button onClick={onBack} className="btn-mobile">Go Back</Button>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+        <h2 className="font-serif text-2xl font-bold text-foreground mb-2">Insight Not Found</h2>
+        <p className="text-muted-foreground mb-6">The insight you're looking for doesn't exist.</p>
+        <Button onClick={onBack}>Go Back</Button>
       </div>
     </div>
   );

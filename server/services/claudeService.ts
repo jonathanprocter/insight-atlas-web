@@ -209,19 +209,42 @@ You will generate content in JSON format with the following structure:
         "Takeaway 4: A question the book raises that readers should ponder",
         "Takeaway 5: How this book can change your perspective or behavior"
       ]
+    },
+    // OPTIONAL BUT ENCOURAGED: Visual elements
+    {
+      "type": "flowDiagram",
+      "title": "The Journey/Process Described in the Book",
+      "steps": [
+        { "label": "Step 1", "description": "Brief description" },
+        { "label": "Step 2", "description": "Brief description" },
+        { "label": "Step 3", "description": "Brief description" }
+      ]
+    },
+    {
+      "type": "comparisonTable",
+      "title": "Comparing Key Concepts",
+      "leftHeader": "Positive/Recommended",
+      "rightHeader": "Negative/Avoid",
+      "rows": [
+        { "left": "Good behavior/trait", "right": "Bad behavior/trait" }
+      ]
     }
   ]
 }
 
 CRITICAL REQUIREMENTS:
-1. Generate AT LEAST 15-20 sections for comprehensive coverage
-2. Include AT LEAST 3 different quotes from the actual book text
+1. Generate AT LEAST 20-25 sections for comprehensive coverage
+2. Include AT LEAST 5 different quotes from the actual book text with context
 3. Every paragraph section should be 2-4 paragraphs (150-300 words each)
 4. Include specific examples, anecdotes, or case studies from the book
 5. Make insights ACTIONABLE - readers should know exactly what to do
 6. Reference specific chapters, pages, or sections when possible
-7. The total output should be 3000-5000 words of rich content
-8. DO NOT be generic - every insight should be specific to THIS book`;
+7. The total output should be 4000-6000 words of rich content
+8. DO NOT be generic - every insight should be specific to THIS book
+9. INCLUDE at least 1 flowDiagram showing a key process or journey from the book
+10. INCLUDE at least 1 comparisonTable contrasting key concepts
+11. INCLUDE at least 2 numberedList sections with 5+ actionable items each
+12. INCLUDE chapter-by-chapter breakdown with specific insights from each section`;
 
   // Use more of the book text for better analysis
   const maxTextLength = 150000;
