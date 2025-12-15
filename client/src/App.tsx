@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Book from "./pages/Book";
 import Insight from "./pages/Insight";
 import Library from "./pages/Library";
+import PipelineTest from "./pages/PipelineTest";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/book/:id" component={Book} />
       <Route path="/insight/:id" component={Insight} />
       <Route path="/library" component={Library} />
+      <Route path="/test-pipeline" component={PipelineTest} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

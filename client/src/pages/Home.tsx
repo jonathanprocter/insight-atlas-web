@@ -423,6 +423,12 @@ function Dashboard() {
               description="Your starred books and insights"
               onClick={() => navigate("/library?filter=favorites")}
             />
+            <QuickActionCard
+              icon={<Zap className="w-6 h-6" />}
+              title="Test Pipeline"
+              description="Test the full insight generation pipeline"
+              onClick={() => navigate("/test-pipeline")}
+            />
           </div>
         </div>
       </main>

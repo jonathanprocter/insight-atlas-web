@@ -253,3 +253,10 @@
 - [x] Verify all 5 exercise types are present (reflection, self-assessment, scenarios, trackers, dialogue scripts)
 - [x] Verify Structure Map appendix is generated
 - [x] Verify warm, accessible tone throughout
+
+
+## PDF Upload Test Feature
+- [x] Add "Test Pipeline" button to upload flow (added /test-pipeline page)
+- [x] Show real-time progress during insight generation (4-stage progress display)
+- [x] Display generated sections as they complete (section/word count display)
+- [x] Navigate to insight view when complete (View Insights button)
