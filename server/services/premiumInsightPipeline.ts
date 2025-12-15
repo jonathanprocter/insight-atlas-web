@@ -4,12 +4,15 @@
  * Orchestrates the complete multi-stage pipeline:
  * Stage 0: Book Analysis & Classification
  * Stage 1: Premium Content Generation
+ * Gap Analysis: Check all 9 dimensions and fill missing content
+ * Stage 2: Final formatting and audio script generation
  * 
  * Produces comprehensive 9,000-12,000 word guides with all premium components.
  */
 
 import { analyzeBook, BookAnalysis } from './stage0BookAnalysis';
 import { generatePremiumContent, PremiumGuide, PremiumSection } from './stage1ContentGeneration';
+import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
 
 export interface InsightSection {
@@ -31,6 +34,8 @@ export interface GeneratedInsight {
   audioScript: string;
   wordCount: number;
   bookAnalysis: BookAnalysis;
+  gapAnalysisApplied: boolean;
+  completenessScore: number;
 }
 
 /**
@@ -53,34 +58,132 @@ export async function generatePremiumInsight(
   const guide = await generatePremiumContent(analysis, bookText);
   console.log('[Premium Pipeline] Stage 1 complete. Generated', guide.sections.length, 'sections,', guide.wordCount, 'words');
 
+  // Gap Analysis: Check all 9 dimensions and fill missing content
+  console.log('[Premium Pipeline] Starting Gap Analysis & Content Completion...');
+  let finalSections = guide.sections;
+  let gapAnalysisApplied = false;
+  let completenessScore = 100;
+
+  try {
+    // Convert sections to a readable format for gap analysis
+    const guideContent = guide.sections.map(s => {
+      let sectionText = `## ${s.title}\n\n${s.content}`;
+      if (s.metadata?.actionSteps) {
+        sectionText += `\n\nAction Steps:\n${(s.metadata.actionSteps as string[]).join('\n')}`;
+      }
+      return sectionText;
+    }).join('\n\n---\n\n');
+
+    // Run gap analysis
+    const gapResult = await runGapAnalysis(
+      guideContent,
+      bookTitle,
+      bookAuthor || 'Unknown',
+      bookText.slice(0, 20000) // First 20k chars as excerpts
+    );
+
+    console.log('[Premium Pipeline] Gap Analysis found', gapResult.gapsFound.length, 'gaps. Completeness:', gapResult.completenessScore);
+
+    if (gapResult.generatedContent.length > 0) {
+      // Convert gap-filled content to PremiumSection format
+      const gapFilledSections = gapResult.generatedContent.map((gc, idx) => ({
+        id: `gap-${idx + 1}`,
+        type: gc.type as PremiumSection['type'],
+        title: gc.title,
+        content: gc.content,
+        visualType: gc.visualType,
+        visualData: gc.visualData,
+        metadata: gc.metadata
+      })) as PremiumSection[];
+
+      // Merge gap-filled content with original sections
+      const mergedSections = mergeGapFilledContent(
+        guide.sections.map(s => ({
+          type: s.type,
+          title: s.title,
+          content: s.content,
+          visualType: s.visualType,
+          visualData: s.visualData,
+          metadata: s.metadata
+        })),
+        gapFilledSections.map(s => ({
+          type: s.type,
+          title: s.title,
+          content: s.content,
+          visualType: s.visualType,
+          visualData: s.visualData,
+          metadata: s.metadata
+        }))
+      );
+
+      // Convert back to InsightSection format with IDs
+      finalSections = mergedSections.map((s, idx) => ({
+        id: `section-${idx + 1}`,
+        type: s.type as PremiumSection['type'],
+        title: s.title,
+        content: s.content,
+        visualType: s.visualType,
+        visualData: s.visualData,
+        metadata: s.metadata
+      })) as PremiumSection[];
+
+      gapAnalysisApplied = true;
+      completenessScore = gapResult.completenessScore;
+      console.log('[Premium Pipeline] Gap Analysis applied. Now have', finalSections.length, 'sections');
+    } else {
+      // No gaps found, use original sections
+      finalSections = guide.sections;
+      completenessScore = gapResult.completenessScore;
+      console.log('[Premium Pipeline] No gaps found. Content is complete.');
+    }
+  } catch (gapError) {
+    console.error('[Premium Pipeline] Gap Analysis failed, using Stage 1 output:', gapError);
+    finalSections = guide.sections;
+  }
+
+  // Calculate updated word count
+  const totalWordCount = finalSections.reduce((sum, s) => {
+    const sectionWords = s.content.split(/\s+/).length;
+    const actionWords = s.metadata?.actionSteps 
+      ? (s.metadata.actionSteps as string[]).join(' ').split(/\s+/).length 
+      : 0;
+    return sum + sectionWords + actionWords;
+  }, 0);
+
   // Extract key themes from analysis
   const keyThemes = analysis.coreConcepts.slice(0, 5).map(c => c.conceptName);
 
   // Generate summary from Quick Glance section
-  const quickGlance = guide.sections.find(s => s.type === 'quickGlance');
+  const quickGlance = finalSections.find(s => s.type === 'quickGlance');
   const summary = quickGlance?.content || `A comprehensive analysis of "${bookTitle}" by ${bookAuthor || 'Unknown Author'}`;
+
+  // Build table of contents from final sections
+  const tableOfContents = finalSections.map(s => ({
+    id: s.id,
+    title: s.title,
+    type: s.type
+  }));
 
   // Generate audio script from the content
   console.log('[Premium Pipeline] Generating audio script...');
-  const audioScript = await generateAudioScript(guide, analysis);
+  const audioScript = await generateAudioScript(
+    { ...guide, sections: finalSections },
+    analysis
+  );
+
+  console.log('[Premium Pipeline] Complete. Total:', finalSections.length, 'sections,', totalWordCount, 'words. Gap analysis applied:', gapAnalysisApplied);
 
   return {
     title: guide.title,
     summary: summary.substring(0, 1000), // First 1000 chars for summary
     keyThemes,
-    sections: guide.sections.map(s => ({
-      id: s.id,
-      type: s.type,
-      title: s.title,
-      content: s.content,
-      visualType: s.visualType,
-      visualData: s.visualData,
-      metadata: s.metadata
-    })),
-    tableOfContents: guide.tableOfContents,
+    sections: finalSections,
+    tableOfContents,
     audioScript,
-    wordCount: guide.wordCount,
-    bookAnalysis: analysis
+    wordCount: totalWordCount,
+    bookAnalysis: analysis,
+    gapAnalysisApplied,
+    completenessScore
   };
 }
 
@@ -88,7 +191,7 @@ export async function generatePremiumInsight(
  * Generate an engaging audio script from the premium guide
  */
 async function generateAudioScript(
-  guide: PremiumGuide,
+  guide: { bookTitle: string; bookAuthor: string; title: string; sections: InsightSection[] },
   analysis: BookAnalysis
 ): Promise<string> {
   // Build content summary for audio
@@ -104,10 +207,14 @@ async function generateAudioScript(
     } else if (section.type === 'actionBox' && section.metadata?.actionSteps) {
       const steps = section.metadata.actionSteps as string[];
       contentParts.push(`Action Steps for ${section.title}: ${steps.slice(0, 3).join('. ')}`);
+    } else if (section.type === 'practicalExample') {
+      contentParts.push(`Example - ${section.title}: ${section.content.substring(0, 200)}`);
+    } else if (section.type === 'insightAtlasNote') {
+      contentParts.push(`Insight Note - ${section.title}: ${section.content.substring(0, 200)}`);
     }
   }
 
-  const contentSummary = contentParts.join('\n\n');
+  const contentSummary = contentParts.slice(0, 10).join('\n\n'); // Limit to first 10 parts
 
   try {
     const response = await invokeLLM({
