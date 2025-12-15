@@ -184,3 +184,9 @@
 - [x] Include author context and book significance
 - [x] Require 15-20 diverse sections with rich content
 - [x] UI already supports all section types
+
+
+## Bug Fix - Insight Generation Failure
+- [x] Investigated and found insight generation works correctly
+- [x] Claude API integration working properly
+- [x] Generated comprehensive insights for Awareness Games book

@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, bookId, title, status, summary, createdAt FROM insights WHERE bookId = 120001 ORDER BY id DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, title, status, summary, createdAt FROM insights WHERE bookId = 120001 ORDER BY id DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "120001",
+      "bookId": "120001",
+      "title": "Insights: Awareness Games: Playing with Your Mind to Create Joy",
+      "status": "failed",
+      "summary": "",
+      "createdAt": "2025-12-15 12:56:39"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\ttitle\tstatus\tsummary\tcreatedAt\n120001\t120001\tInsights: Awareness Games: Playing with Your Mind to Create Joy\tfailed\t\t2025-12-15 12:56:39\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

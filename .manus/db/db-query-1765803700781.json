@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, bookId, title, status FROM insights ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, title, status FROM insights ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "90001",
+      "bookId": "90001",
+      "title": "Taming the Molecule of More: Balancing Dopamine for Fulfillment and Progress",
+      "status": "completed"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\ttitle\tstatus\n90001\t90001\tTaming the Molecule of More: Balancing Dopamine for Fulfillment and Progress\tcompleted\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

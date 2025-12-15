@@ -1,0 +1,30 @@
+{
+  "query": "SELECT b.id, b.title, b.author, b.wordCount, LENGTH(b.extractedText) as textLength, i.id as insightId, i.status, i.title as insightTitle FROM books b LEFT JOIN insights i ON b.id = i.bookId ORDER BY b.id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT b.id, b.title, b.author, b.wordCount, LENGTH(b.extractedText) as textLength, i.id as insightId, i.status, i.title as insightTitle FROM books b LEFT JOIN insights i ON b.id = i.bookId ORDER BY b.id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "120001",
+      "title": "Awareness Games: Playing with Your Mind to Create Joy",
+      "author": "O'Connor, Brian Tom",
+      "wordCount": "15634",
+      "textLength": "88292",
+      "insightId": "120001",
+      "status": "failed",
+      "insightTitle": "Insights: Awareness Games: Playing with Your Mind to Create Joy"
+    },
+    {
+      "id": "90001",
+      "title": "Taming the Molecule of More",
+      "author": "Michael E. Long",
+      "wordCount": "82188",
+      "textLength": "502194",
+      "insightId": "90001",
+      "status": "completed",
+      "insightTitle": "Taming the Molecule of More: Balancing Dopamine for Fulfillment and Progress"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tauthor\twordCount\ttextLength\tinsightId\tstatus\tinsightTitle\n120001\tAwareness Games: Playing with Your Mind to Create Joy\tO'Connor, Brian Tom\t15634\t88292\t120001\tfailed\tInsights: Awareness Games: Playing with Your Mind to Create Joy\n90001\tTaming the Molecule of More\tMichael E. Long\t82188\t502194\t90001\tcompleted\tTaming the Molecule of More: Balancing Dopamine for Fulfillment and Progress\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}
