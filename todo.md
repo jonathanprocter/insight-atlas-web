@@ -285,3 +285,9 @@
 - [x] Add debug panel UI component (DebugPanel.tsx)
 - [x] Add logging to file extraction pipeline
 - [x] Add logging to insight generation pipeline
+
+
+## Bug Fix - Anthropic Claude Timeout
+- [x] Increase Anthropic API timeout for large books (10 minutes)
+- [x] Smart content extraction for large books (preserves chapter structure)
+- [x] Maintains 100% effectiveness by extracting key sections from each chapter

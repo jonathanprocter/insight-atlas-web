@@ -20,7 +20,7 @@ export const isAnthropicConfigured = (): boolean => {
   return !!ANTHROPIC_API_KEY && ANTHROPIC_API_KEY.length > 10;
 };
 
-// Lazy initialization of Anthropic client
+// Lazy initialization of Anthropic client with extended timeout
 let anthropicClient: Anthropic | null = null;
 const getAnthropicClient = (): Anthropic | null => {
   if (!isAnthropicConfigured()) {
@@ -29,10 +29,87 @@ const getAnthropicClient = (): Anthropic | null => {
   if (!anthropicClient) {
     anthropicClient = new Anthropic({
       apiKey: ANTHROPIC_API_KEY,
+      timeout: 10 * 60 * 1000, // 10 minutes timeout for large books
     });
   }
   return anthropicClient;
 };
+
+// Maximum characters to send to Claude for optimal processing
+// Claude can handle ~200k tokens, but we limit to ensure fast responses
+const MAX_BOOK_TEXT_CHARS = 200000;
+
+/**
+ * Smart book text extraction that preserves quality
+ * Instead of simple truncation, this extracts key sections:
+ * - Chapter beginnings and endings (where key ideas are introduced/summarized)
+ * - Evenly distributed samples throughout the book
+ * - Maintains narrative coherence
+ */
+function extractKeyBookContent(text: string): string {
+  if (text.length <= MAX_BOOK_TEXT_CHARS) {
+    return text;
+  }
+
+  // Split into potential chapters/sections
+  const chapterPatterns = /(?:^|\n)(?:Chapter|CHAPTER|Part|PART|Section|SECTION)\s*[\dIVXivx]+[.:\s]/gm;
+  const chapters: { start: number; end: number }[] = [];
+  let match;
+  
+  while ((match = chapterPatterns.exec(text)) !== null) {
+    if (chapters.length > 0) {
+      chapters[chapters.length - 1].end = match.index;
+    }
+    chapters.push({ start: match.index, end: text.length });
+  }
+
+  // If no chapters found, use paragraph-based extraction
+  if (chapters.length === 0) {
+    // Take beginning (introduction), middle samples, and end (conclusion)
+    const introLength = Math.floor(MAX_BOOK_TEXT_CHARS * 0.35);
+    const middleLength = Math.floor(MAX_BOOK_TEXT_CHARS * 0.35);
+    const endLength = Math.floor(MAX_BOOK_TEXT_CHARS * 0.30);
+    
+    const intro = text.slice(0, introLength);
+    const middleStart = Math.floor(text.length * 0.4);
+    const middle = text.slice(middleStart, middleStart + middleLength);
+    const end = text.slice(-endLength);
+    
+    return intro + 
+      '\n\n--- [Content from middle of book] ---\n\n' + 
+      middle + 
+      '\n\n--- [Content from end of book] ---\n\n' + 
+      end;
+  }
+
+  // Extract key portions from each chapter
+  const extractedParts: string[] = [];
+  const charsPerChapter = Math.floor(MAX_BOOK_TEXT_CHARS / chapters.length);
+  
+  for (const chapter of chapters) {
+    const chapterText = text.slice(chapter.start, chapter.end);
+    const chapterLength = chapterText.length;
+    
+    if (chapterLength <= charsPerChapter) {
+      // Include full chapter if it fits
+      extractedParts.push(chapterText);
+    } else {
+      // Extract beginning (40%), key middle (30%), and end (30%) of chapter
+      const beginLength = Math.floor(charsPerChapter * 0.4);
+      const middleLength = Math.floor(charsPerChapter * 0.3);
+      const endLength = Math.floor(charsPerChapter * 0.3);
+      
+      const begin = chapterText.slice(0, beginLength);
+      const middleStart = Math.floor(chapterLength * 0.4);
+      const middle = chapterText.slice(middleStart, middleStart + middleLength);
+      const end = chapterText.slice(-endLength);
+      
+      extractedParts.push(begin + '\n[...]\n' + middle + '\n[...]\n' + end);
+    }
+  }
+
+  return extractedParts.join('\n\n---\n\n');
+}
 
 export interface LLMResponse {
   content: string;
@@ -46,7 +123,8 @@ export interface LLMResponse {
 export async function generateWithClaude(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 16000
+  maxTokens: number = 16000,
+  options?: { truncateInput?: boolean }
 ): Promise<LLMResponse> {
   const client = getAnthropicClient();
   if (!client) {
@@ -54,10 +132,21 @@ export async function generateWithClaude(
     return generateWithBuiltinLLM(systemPrompt, userPrompt, maxTokens);
   }
 
+  // Optionally extract key content from very long prompts
+  let processedUserPrompt = userPrompt;
+  if (options?.truncateInput && userPrompt.length > MAX_BOOK_TEXT_CHARS) {
+    processedUserPrompt = extractKeyBookContent(userPrompt);
+    logLLM('Extracted key content from long prompt', { 
+      originalLength: userPrompt.length, 
+      extractedLength: processedUserPrompt.length 
+    });
+  }
+
   logLLM('Using Anthropic Claude (PRIMARY)', { 
     systemPromptLength: systemPrompt.length, 
-    userPromptLength: userPrompt.length,
-    maxTokens 
+    userPromptLength: processedUserPrompt.length,
+    maxTokens,
+    wasTruncated: processedUserPrompt.length !== userPrompt.length
   });
 
   try {
@@ -66,7 +155,7 @@ export async function generateWithClaude(
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: processedUserPrompt },
       ],
     });
 

@@ -284,10 +284,12 @@ export async function generatePremiumContent(
 
   try {
     // Use Anthropic Claude as primary for premium content generation
+    // Enable truncation for very large books to prevent timeout
     const response = await generateWithClaude(
       STAGE_1_SYSTEM_PROMPT,
       prompt,
-      16000
+      16000,
+      { truncateInput: true }
     );
 
     console.log('[Stage 1] Content generated using:', response.provider);
