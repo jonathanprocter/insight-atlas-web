@@ -8,6 +8,7 @@ import { extractContent, truncateText } from "./services/fileExtraction";
 import { extractAndUploadCover } from "./services/coverExtraction";
 import { generateInsight } from "./services/insightGeneration";
 import { streamBookInsightsWithClaude, isClaudeConfigured } from "./services/claudeService";
+import { generatePremiumInsight, convertToLegacyFormat } from "./services/premiumInsightPipeline";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
 import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
 import { storagePut } from "./storage";
@@ -153,16 +154,18 @@ export const appRouter = router({
         });
 
         try {
-          // Generate insights using AI
-          const generated = await generateInsight(
-            book.extractedText || "",
+          // Generate insights using Premium Pipeline (Stage 0 + Stage 1)
+          console.log('[Insights] Starting Premium Pipeline for book:', book.title);
+          const premiumInsight = await generatePremiumInsight(
             book.title,
-            book.author
+            book.author,
+            book.extractedText || ""
           );
+          console.log('[Insights] Premium Pipeline complete:', premiumInsight.sections.length, 'sections,', premiumInsight.wordCount, 'words');
 
-          // Store content blocks
-          for (let i = 0; i < generated.sections.length; i++) {
-            const section = generated.sections[i];
+          // Store content blocks with premium section types
+          for (let i = 0; i < premiumInsight.sections.length; i++) {
+            const section = premiumInsight.sections[i];
             await db.createContentBlock({
               insightId,
               blockType: section.type,
@@ -171,19 +174,19 @@ export const appRouter = router({
               orderIndex: i,
               visualType: section.visualType || null,
               visualData: section.visualData ? JSON.stringify(section.visualData) : null,
-              listItems: section.items ? JSON.stringify(section.items) : null,
+              listItems: section.metadata?.actionSteps ? JSON.stringify(section.metadata.actionSteps) : null,
             });
           }
 
           // Update insight with generated content
           await db.updateInsight(insightId, {
-            title: generated.title,
-            summary: generated.summary,
+            title: premiumInsight.title,
+            summary: premiumInsight.summary,
             status: "completed",
-            keyThemes: JSON.stringify(generated.keyThemes),
-            audioScript: generated.audioScript,
-            wordCount: generated.wordCount,
-            recommendedVisuals: JSON.stringify(generated.recommendedVisualTypes),
+            keyThemes: JSON.stringify(premiumInsight.keyThemes),
+            audioScript: premiumInsight.audioScript,
+            wordCount: premiumInsight.wordCount,
+            recommendedVisuals: JSON.stringify(premiumInsight.tableOfContents.map(t => t.type)),
           });
 
           // Update library item with insight
@@ -198,11 +201,11 @@ export const appRouter = router({
 
           return {
             insightId,
-            title: generated.title,
-            summary: generated.summary,
-            keyThemes: generated.keyThemes,
-            sectionCount: generated.sections.length,
-            wordCount: generated.wordCount,
+            title: premiumInsight.title,
+            summary: premiumInsight.summary,
+            keyThemes: premiumInsight.keyThemes,
+            sectionCount: premiumInsight.sections.length,
+            wordCount: premiumInsight.wordCount,
           };
         } catch (error) {
           await db.updateInsight(insightId, { status: "failed" });

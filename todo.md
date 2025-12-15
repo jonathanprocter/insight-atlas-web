@@ -198,3 +198,20 @@
 - [x] Update PDF export to include cover page and TOC
 - [x] Add visual components: FlowDiagram, ComparisonTable, ActionList, QuoteBlock, ConceptCard, ChapterCard, TakeawayBox
 - [x] Match comprehensive format from StrongGround guide PDF
+
+
+## Premium Pipeline Implementation (From Architecture Files)
+- [x] Create Stage 0: Book Analysis & Classification service
+- [x] Create Stage 1: Premium Content Generation with enhanced Claude prompt
+- [x] Create Stage 2: Formatting service (integrated into pipeline)
+- [x] Update routers to use multi-stage pipeline
+- [x] Add Quick Glance Summary section (500-600 words, standalone)
+- [x] Add Foundational Narrative section (300-500 words, origin story)
+- [x] Add Insight Atlas Note boxes with Key Distinction, Practical Implication, Go Deeper
+- [x] Add Action Boxes with 3-5 specific imperative steps
+- [x] Add Visual Frameworks (flow charts, comparison tables, concept maps)
+- [x] Add Self-Assessment scales and Tracking templates
+- [x] Add Dialogue Scripts for exercises
+- [x] Add Structure Map Appendix
+- [x] Target 9,000-12,000 words per guide
+- [x] Implement 3-4 examples per major concept

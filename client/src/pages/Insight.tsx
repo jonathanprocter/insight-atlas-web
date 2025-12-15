@@ -16,6 +16,7 @@ import {
   TakeawayBox,
   MetricDisplay
 } from "@/components/InsightVisuals";
+import { PremiumSectionRenderer } from "@/components/PremiumSections";
 import { toast } from "sonner";
 import {
   BookOpen,
@@ -409,9 +410,26 @@ export default function InsightPage() {
 
           {/* Content Blocks */}
           <div className="space-y-4 md:space-y-6">
-            {insight.contentBlocks?.map((block: any, index: number) => (
-              <ContentBlock key={block.id || index} block={block} sectionIndex={index} />
-            ))}
+            {insight.contentBlocks?.map((block: any, index: number) => {
+              // Check if this is a premium section type
+              const premiumTypes = ['quickGlance', 'foundationalNarrative', 'executiveSummary', 'conceptExplanation', 'practicalExample', 'insightAtlasNote', 'actionBox', 'selfAssessment', 'structureMap', 'keyTakeaways', 'visualFramework'];
+              if (premiumTypes.includes(block.blockType)) {
+                return (
+                  <PremiumSectionRenderer
+                    key={block.id || index}
+                    section={{
+                      type: block.blockType,
+                      title: block.title || '',
+                      content: block.content || '',
+                      visualType: block.visualType,
+                      visualData: block.visualData ? (typeof block.visualData === 'string' ? JSON.parse(block.visualData) : block.visualData) : undefined,
+                      metadata: block.listItems ? (typeof block.listItems === 'string' ? JSON.parse(block.listItems) : block.listItems) : undefined,
+                    }}
+                  />
+                );
+              }
+              return <ContentBlock key={block.id || index} block={block} sectionIndex={index} />;
+            })}
           </div>
 
           {/* Footer */}
