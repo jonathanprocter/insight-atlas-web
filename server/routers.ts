@@ -33,43 +33,48 @@ export const appRouter = router({
         fileData: z.string(), // Base64 encoded file data
       }))
       .mutation(async ({ ctx, input }) => {
-        const buffer = Buffer.from(input.fileData, "base64");
-        
-        // Extract content from file
-        const extracted = await extractContent(buffer, input.filename, input.mimeType);
-        
-        // Upload original file to S3
-        const fileKey = `books/${ctx.user.id}/${Date.now()}-${input.filename}`;
-        const { url: fileUrl } = await storagePut(fileKey, buffer, input.mimeType);
-        
-        // Create book record
-        const bookId = await db.createBook({
-          userId: ctx.user.id,
-          title: extracted.title,
-          author: extracted.author,
-          fileUrl,
-          fileType: extracted.fileType,
-          wordCount: extracted.wordCount,
-          pageCount: extracted.pageCount,
-          extractedText: truncateText(extracted.text, 500000), // Store up to 500k chars
-        });
-        
-        // Create library item
-        await db.createLibraryItem({
-          userId: ctx.user.id,
-          bookId,
-          readingStatus: "new",
-          isFavorite: false,
-        });
-        
-        return {
-          bookId,
-          title: extracted.title,
-          author: extracted.author,
-          wordCount: extracted.wordCount,
-          pageCount: extracted.pageCount,
-          fileType: extracted.fileType,
-        };
+        try {
+          const buffer = Buffer.from(input.fileData, "base64");
+          
+          // Extract content from file
+          const extracted = await extractContent(buffer, input.filename, input.mimeType);
+          
+          // Upload original file to S3
+          const fileKey = `books/${ctx.user.id}/${Date.now()}-${input.filename}`;
+          const { url: fileUrl } = await storagePut(fileKey, buffer, input.mimeType);
+          
+          // Create book record
+          const bookId = await db.createBook({
+            userId: ctx.user.id,
+            title: extracted.title || input.filename.replace(/\.[^.]+$/, ""),
+            author: extracted.author,
+            fileUrl,
+            fileType: extracted.fileType,
+            wordCount: extracted.wordCount,
+            pageCount: extracted.pageCount,
+            extractedText: truncateText(extracted.text, 500000), // Store up to 500k chars
+          });
+          
+          // Create library item
+          await db.createLibraryItem({
+            userId: ctx.user.id,
+            bookId,
+            readingStatus: "new",
+            isFavorite: false,
+          });
+          
+          return {
+            bookId,
+            title: extracted.title || input.filename.replace(/\.[^.]+$/, ""),
+            author: extracted.author,
+            wordCount: extracted.wordCount,
+            pageCount: extracted.pageCount,
+            fileType: extracted.fileType,
+          };
+        } catch (error) {
+          console.error("[Book Upload] Error:", error);
+          throw new Error(`Failed to process book: ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
       }),
 
     // Get user's books

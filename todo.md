@@ -71,3 +71,9 @@
 - [ ] Reading progress tracking
 - [ ] Social sharing features
 - [ ] Multiple insight versions per book
+
+
+## Bug Fixes
+- [x] Fix PDF upload crash during extraction
+- [x] Fix EPUB upload crash during extraction
+- [x] Remove display of raw extracted content

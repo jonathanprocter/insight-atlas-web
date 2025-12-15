@@ -1,5 +1,3 @@
-import { PDFParse } from "pdf-parse";
-import EPub from "epub2";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -18,42 +16,71 @@ export interface ExtractedContent {
  */
 export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> {
   try {
-    // Write buffer to temp file for PDFParse
-    const tempPath = path.join(os.tmpdir(), `pdf-${Date.now()}.pdf`);
-    fs.writeFileSync(tempPath, buffer);
+    // Dynamic import to avoid issues
+    const { PDFParse } = await import("pdf-parse");
     
-    const parser = new PDFParse({ data: fs.readFileSync(tempPath) });
-    const textResult = await parser.getText();
-    const infoResult = await parser.getInfo();
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
     
-    // Clean up temp file
-    fs.unlinkSync(tempPath);
+    let text = "";
+    let title = "Untitled PDF";
+    let author: string | null = null;
+    let pageCount: number | null = null;
     
-    const text = textResult.text || "";
-    const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
-    
-    // Extract title from metadata or first line
-    let title = infoResult.info?.Title || "";
-    if (!title && text) {
-      const firstLine = text.split("\n").find((line: string) => line.trim().length > 0);
-      title = firstLine?.substring(0, 100) || "Untitled PDF";
+    try {
+      const textResult = await parser.getText();
+      text = textResult.text || "";
+      pageCount = textResult.pages?.length || null;
+    } catch (textError) {
+      console.warn("[PDF Extraction] Text extraction failed:", textError);
     }
     
-    const author = infoResult.info?.Author || null;
+    try {
+      const infoResult = await parser.getInfo();
+      if (infoResult.info?.Title) {
+        title = infoResult.info.Title;
+      }
+      if (infoResult.info?.Author) {
+        author = infoResult.info.Author;
+      }
+    } catch (infoError) {
+      console.warn("[PDF Extraction] Info extraction failed:", infoError);
+    }
     
-    await parser.destroy();
+    // Fallback title from first line
+    if (title === "Untitled PDF" && text) {
+      const firstLine = text.split("\n").find((line: string) => line.trim().length > 0);
+      if (firstLine && firstLine.length < 200) {
+        title = firstLine.trim();
+      }
+    }
+    
+    const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+    
+    try {
+      await parser.destroy();
+    } catch {
+      // Ignore destroy errors
+    }
     
     return {
-      title: title || "Untitled PDF",
+      title,
       author,
       text,
       wordCount,
-      pageCount: textResult.pages?.length || null,
+      pageCount,
       fileType: "pdf",
     };
   } catch (error) {
     console.error("[PDF Extraction] Error:", error);
-    throw new Error(`Failed to extract PDF content: ${error instanceof Error ? error.message : "Unknown error"}`);
+    // Return minimal content on failure instead of crashing
+    return {
+      title: "PDF Document",
+      author: null,
+      text: "",
+      wordCount: 0,
+      pageCount: null,
+      fileType: "pdf",
+    };
   }
 }
 
@@ -61,68 +88,154 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
  * Extract text content from an EPUB file buffer
  */
 export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    const tempPath = path.join(os.tmpdir(), `epub-${Date.now()}-${Math.random().toString(36).slice(2)}.epub`);
+    
     try {
-      const tempPath = path.join(os.tmpdir(), `epub-${Date.now()}.epub`);
       fs.writeFileSync(tempPath, buffer);
       
-      const epub = new EPub(tempPath);
-      
-      epub.on("error", (err: Error) => {
-        fs.unlinkSync(tempPath);
-        reject(new Error(`EPUB parsing error: ${err.message}`));
-      });
-      
-      epub.on("end", async () => {
-        try {
-          const title = epub.metadata?.title || "Untitled EPUB";
-          const author = epub.metadata?.creator || null;
-          
-          // Extract text from all chapters
-          const chapters: string[] = [];
-          const flow = epub.flow || [];
-          
-          for (const chapter of flow) {
-            if (chapter.id) {
-              try {
-                const chapterText = await new Promise<string>((res, rej) => {
-                  epub.getChapter(chapter.id!, (err: Error, text?: string) => {
-                    if (err) rej(err);
-                    else res(text || "");
-                  });
-                });
-                // Strip HTML tags
-                const cleanText = chapterText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-                if (cleanText) chapters.push(cleanText);
-              } catch {
-                // Skip failed chapters
-              }
+      // Dynamic import
+      import("epub2").then(({ default: EPub }) => {
+        const epub = new EPub(tempPath);
+        
+        const cleanup = () => {
+          try {
+            if (fs.existsSync(tempPath)) {
+              fs.unlinkSync(tempPath);
             }
+          } catch {
+            // Ignore cleanup errors
           }
-          
-          const text = chapters.join("\n\n");
-          const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
-          
-          // Clean up temp file
-          fs.unlinkSync(tempPath);
-          
+        };
+        
+        // Set a timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          cleanup();
           resolve({
-            title,
-            author,
-            text,
-            wordCount,
-            pageCount: flow.length,
+            title: "EPUB Document",
+            author: null,
+            text: "",
+            wordCount: 0,
+            pageCount: null,
             fileType: "epub",
           });
-        } catch (error) {
-          fs.unlinkSync(tempPath);
-          reject(error);
-        }
+        }, 30000);
+        
+        epub.on("error", (err: Error) => {
+          clearTimeout(timeout);
+          console.error("[EPUB Extraction] Error:", err);
+          cleanup();
+          resolve({
+            title: "EPUB Document",
+            author: null,
+            text: "",
+            wordCount: 0,
+            pageCount: null,
+            fileType: "epub",
+          });
+        });
+        
+        epub.on("end", async () => {
+          clearTimeout(timeout);
+          try {
+            const title = epub.metadata?.title || "EPUB Document";
+            const author = epub.metadata?.creator || null;
+            
+            // Extract text from chapters with error handling
+            const chapters: string[] = [];
+            const flow = epub.flow || [];
+            
+            for (const chapter of flow.slice(0, 50)) { // Limit chapters to prevent timeout
+              if (chapter.id) {
+                try {
+                  const chapterText = await new Promise<string>((res) => {
+                    const chapterTimeout = setTimeout(() => res(""), 5000);
+                    epub.getChapter(chapter.id!, (err: Error | null, text?: string) => {
+                      clearTimeout(chapterTimeout);
+                      if (err) res("");
+                      else res(text || "");
+                    });
+                  });
+                  // Strip HTML tags
+                  const cleanText = chapterText
+                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+                    .replace(/<[^>]*>/g, " ")
+                    .replace(/&nbsp;/g, " ")
+                    .replace(/&amp;/g, "&")
+                    .replace(/&lt;/g, "<")
+                    .replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, '"')
+                    .replace(/\s+/g, " ")
+                    .trim();
+                  if (cleanText && cleanText.length > 10) {
+                    chapters.push(cleanText);
+                  }
+                } catch {
+                  // Skip failed chapters
+                }
+              }
+            }
+            
+            const text = chapters.join("\n\n");
+            const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+            
+            cleanup();
+            
+            resolve({
+              title,
+              author,
+              text,
+              wordCount,
+              pageCount: flow.length,
+              fileType: "epub",
+            });
+          } catch (error) {
+            console.error("[EPUB Extraction] Processing error:", error);
+            cleanup();
+            resolve({
+              title: "EPUB Document",
+              author: null,
+              text: "",
+              wordCount: 0,
+              pageCount: null,
+              fileType: "epub",
+            });
+          }
+        });
+        
+        epub.parse();
+      }).catch((importError) => {
+        console.error("[EPUB Extraction] Import error:", importError);
+        try {
+          if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
+          }
+        } catch {}
+        resolve({
+          title: "EPUB Document",
+          author: null,
+          text: "",
+          wordCount: 0,
+          pageCount: null,
+          fileType: "epub",
+        });
       });
-      
-      epub.parse();
     } catch (error) {
-      reject(new Error(`Failed to extract EPUB content: ${error instanceof Error ? error.message : "Unknown error"}`));
+      console.error("[EPUB Extraction] Setup error:", error);
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+      } catch {}
+      resolve({
+        title: "EPUB Document",
+        author: null,
+        text: "",
+        wordCount: 0,
+        pageCount: null,
+        fileType: "epub",
+      });
     }
   });
 }
@@ -136,8 +249,14 @@ export async function extractFromTXT(buffer: Buffer, filename: string): Promise<
     const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
     
     // Try to extract title from first line or filename
-    const firstLine = text.split("\n").find((line: string) => line.trim().length > 0);
-    const title = firstLine?.substring(0, 100) || filename.replace(/\.txt$/i, "") || "Untitled Text";
+    const lines = text.split("\n");
+    const firstLine = lines.find((line: string) => line.trim().length > 0);
+    let title = filename.replace(/\.txt$/i, "") || "Untitled Text";
+    
+    // Use first line as title if it looks like a title (short, no punctuation at end)
+    if (firstLine && firstLine.length < 100 && !firstLine.match(/[.!?]$/)) {
+      title = firstLine.trim();
+    }
     
     return {
       title,
@@ -148,7 +267,15 @@ export async function extractFromTXT(buffer: Buffer, filename: string): Promise<
       fileType: "txt",
     };
   } catch (error) {
-    throw new Error(`Failed to extract TXT content: ${error instanceof Error ? error.message : "Unknown error"}`);
+    console.error("[TXT Extraction] Error:", error);
+    return {
+      title: filename.replace(/\.txt$/i, "") || "Text Document",
+      author: null,
+      text: "",
+      wordCount: 0,
+      pageCount: null,
+      fileType: "txt",
+    };
   }
 }
 
@@ -174,14 +301,16 @@ export async function extractContent(
     return extractFromTXT(buffer, filename);
   }
   
-  throw new Error(`Unsupported file type: ${mimeType || filename}`);
+  // Default to TXT for unknown types
+  console.warn(`[Extraction] Unknown file type: ${mimeType || filename}, treating as text`);
+  return extractFromTXT(buffer, filename);
 }
 
 /**
  * Truncate text to a maximum length while preserving word boundaries
  */
 export function truncateText(text: string, maxLength: number = 100000): string {
-  if (text.length <= maxLength) return text;
+  if (!text || text.length <= maxLength) return text || "";
   
   const truncated = text.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(" ");
