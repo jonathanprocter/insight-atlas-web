@@ -1,5 +1,27 @@
 {
   "version": "7",
   "dialect": "mysql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1765789531752,
+      "tag": "0000_round_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1765789671371,
+      "tag": "0001_bizarre_lake",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1765790269019,
+      "tag": "0002_careful_jack_flag",
+      "breakpoints": true
+    }
+  ]
 }

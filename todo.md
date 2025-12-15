@@ -1,0 +1,73 @@
+# Insight Atlas Web - Project TODO
+
+## Core Infrastructure
+- [x] Database schema for books, insights, and library items
+- [x] tRPC routers for all features
+- [x] User authentication integration
+
+## Book Upload & Processing
+- [x] File upload component (PDF, EPUB, TXT)
+- [x] Text extraction from uploaded files
+- [x] Book metadata parsing
+
+## AI Insight Generation
+- [x] OpenAI integration with streaming
+- [x] Real-time progress tracking (word count, status)
+- [x] Content parsing and structuring
+
+## Premium UI Components
+- [x] Ornate borders and decorative elements
+- [x] Diamond ornaments and flourishes
+- [x] Cormorant Garamond and Inter fonts
+- [x] Premium quote blocks
+- [x] Author spotlight cards
+- [x] Commentary boxes (Insight Note, Alternative Perspective, Research Insight)
+- [x] Section headers with decorative elements
+- [x] Section dividers
+
+## Visual Type System
+- [x] 30 visual type definitions
+- [x] Intelligent content-based selection
+- [x] Visual rendering components
+- [x] Timeline, flow diagram, comparison matrix
+- [x] Pie chart, bar chart, infographic
+- [x] Mind map, hierarchy, network graph
+- [x] And 21 more visual types
+
+## Audio Narration
+- [x] ElevenLabs API integration
+- [x] Audio generation from insights
+- [x] Playback controls (play, pause, seek)
+- [x] Audio progress indicator
+
+## Library Management
+- [x] Library list view with book cards
+- [x] Favorites toggle
+- [x] Search and filtering
+- [x] Swipe-like actions (Favorite, Export, Delete)
+- [x] Reading status tracking
+
+## PDF Export
+- [x] PDF generation with premium styling
+- [x] Ornate borders in PDF
+- [x] Typography matching app design
+- [x] Visual elements in PDF
+
+## Responsive Design
+- [x] Mobile-optimized layout
+- [x] Tablet-optimized layout
+- [x] Desktop-optimized layout
+
+## Final Integration
+- [x] App.tsx routing
+- [x] Navigation structure
+- [x] Error handling
+- [x] Loading states
+
+## Future Enhancements
+- [ ] Streaming insight generation with real-time progress UI
+- [ ] Visual chart rendering with Chart.js
+- [ ] Book cover image extraction
+- [ ] Reading progress tracking
+- [ ] Social sharing features
+- [ ] Multiple insight versions per book
