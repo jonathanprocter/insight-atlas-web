@@ -5,7 +5,9 @@ import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { extractContent, truncateText } from "./services/fileExtraction";
+import { extractAndUploadCover } from "./services/coverExtraction";
 import { generateInsight } from "./services/insightGeneration";
+import { streamBookInsightsWithClaude, isClaudeConfigured } from "./services/claudeService";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
 import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
 import { storagePut } from "./storage";
@@ -63,6 +65,17 @@ export const appRouter = router({
             pageCount: extracted.pageCount,
             extractedText: truncateText(extracted.text, 500000),
           });
+          
+          // Extract and upload cover image
+          let coverUrl: string | null = null;
+          try {
+            coverUrl = await extractAndUploadCover(buffer, extracted.fileType, bookId);
+            if (coverUrl) {
+              await db.updateBook(bookId, { coverUrl });
+            }
+          } catch (coverError) {
+            console.warn("[Upload] Cover extraction failed:", coverError);
+          }
           
           // Create library item
           await db.createLibraryItem({
@@ -245,6 +258,29 @@ export const appRouter = router({
         await db.deleteInsight(input.id);
         return { success: true };
       }),
+
+    // Get generation status for polling
+    getStatus: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const insight = await db.getInsightById(input.id);
+        if (!insight) {
+          return { status: "not_found", progress: 0 };
+        }
+        const contentBlocks = await db.getContentBlocksByInsightId(input.id);
+        return {
+          status: insight.status,
+          progress: insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95),
+          sectionCount: contentBlocks.length,
+          title: insight.title,
+          summary: insight.summary,
+        };
+      }),
+
+    // Check if Claude streaming is available
+    canStream: publicProcedure.query(() => {
+      return { available: isClaudeConfigured() };
+    }),
   }),
 
   // Audio router

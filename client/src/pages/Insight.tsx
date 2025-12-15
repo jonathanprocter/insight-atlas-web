@@ -153,20 +153,38 @@ export default function InsightPage() {
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
               {!insight.audioUrl ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateAudioMutation.mutate({ insightId, voiceId: selectedVoice })}
-                  disabled={generateAudioMutation.isPending}
-                  className="touch-target text-xs md:text-sm"
-                >
-                  {generateAudioMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
-                  ) : (
-                    <Headphones className="w-4 h-4 md:mr-2" />
-                  )}
-                  <span className="hidden md:inline">Generate Audio</span>
-                </Button>
+                <>
+                  {/* Voice Selection */}
+                  <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                    <SelectTrigger className="w-[100px] md:w-[140px] h-9 text-xs md:text-sm">
+                      <SelectValue placeholder="Voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {voices?.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{voice.name}</span>
+                            <span className="text-xs text-muted-foreground hidden md:block">{voice.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateAudioMutation.mutate({ insightId, voiceId: selectedVoice })}
+                    disabled={generateAudioMutation.isPending}
+                    className="touch-target text-xs md:text-sm"
+                  >
+                    {generateAudioMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
+                    ) : (
+                      <Headphones className="w-4 h-4 md:mr-2" />
+                    )}
+                    <span className="hidden md:inline">Generate Audio</span>
+                  </Button>
+                </>
               ) : null}
               <Button
                 variant="outline"

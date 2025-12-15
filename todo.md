@@ -136,3 +136,16 @@
 - [ ] Test Claude integration with book insight generation
 
 - [x] Enhance audio script to convey visual content meaningfully (not just describe visuals)
+
+
+## Voice Selection & Streaming Features
+- [x] Add ElevenLabs voice selection dropdown (Rachel, Adam, etc.)
+- [x] Display voice preview/description for each option
+- [x] Save user's preferred voice selection
+- [x] Implement real-time streaming insight generation with Claude
+- [x] Show progress indicator during generation with section count
+- [x] Display progress bar with percentage
+- [x] Extract book covers from EPUB files
+- [x] Extract book covers from PDF files (first page)
+- [x] Upload covers to S3 and store URL in database
+- [x] Display covers in Library and Book detail pages

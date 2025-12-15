@@ -211,6 +211,153 @@ Generate a JSON response with the insight structure described in your instructio
 }
 
 /**
+ * Stream book insights using Claude with real-time updates
+ * Returns an async generator that yields progress updates
+ */
+export async function* streamBookInsightsWithClaude(
+  bookTitle: string,
+  bookAuthor: string | null,
+  bookText: string,
+  visualType: string
+): AsyncGenerator<{
+  type: "progress" | "section" | "complete" | "error";
+  data: any;
+}> {
+  const systemPrompt = `You are an expert literary analyst and content creator for Insight Atlas. Generate beautifully crafted, insightful summaries and analyses of books.
+
+You will generate content in JSON format. Start by outputting the title and summary, then output each section one at a time.
+
+Output format - emit each part as a separate JSON object on its own line:
+{"type": "header", "title": "...", "summary": "...", "keyThemes": [...]}
+{"type": "section", "section": {"type": "heading", "content": "..."}}
+{"type": "section", "section": {"type": "paragraph", "content": "..."}}
+... more sections ...
+{"type": "complete"}
+
+Section types available: heading, paragraph, quote (with title for attribution), insightNote (with title), bulletList (with items array), numberedList (with items array), authorSpotlight, alternativePerspective, researchInsight.
+
+Generate 8-12 diverse sections. Output each JSON object on a new line as you generate it.`;
+
+  const maxTextLength = 100000;
+  const truncatedText = bookText.length > maxTextLength 
+    ? bookText.substring(0, maxTextLength) + "\n\n[Text truncated for analysis...]"
+    : bookText;
+
+  const userMessage = `Analyze this book and generate insights, outputting each section as a separate JSON line:
+
+**Book Title:** ${bookTitle}
+${bookAuthor ? `**Author:** ${bookAuthor}` : ""}
+
+**Book Content:**
+${truncatedText || "No text content available. Generate insights based on the title."}`;
+
+  try {
+    yield { type: "progress", data: { message: "Starting analysis with Claude...", percent: 5 } };
+
+    const stream = await anthropic.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    let fullContent = "";
+    let headerParsed = false;
+    let sectionCount = 0;
+    let header: { title: string; summary: string; keyThemes: string[] } | null = null;
+    const sections: Array<{ type: string; content?: string; title?: string; items?: string[] }> = [];
+
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullContent += event.delta.text;
+
+        // Try to parse complete JSON lines
+        const lines = fullContent.split("\n");
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i].trim();
+          if (line.startsWith("{") && line.endsWith("}")) {
+            try {
+              const parsed = JSON.parse(line);
+              
+              if (parsed.type === "header" && !headerParsed) {
+                header = {
+                  title: parsed.title || `Insights: ${bookTitle}`,
+                  summary: parsed.summary || "",
+                  keyThemes: parsed.keyThemes || [],
+                };
+                headerParsed = true;
+                yield { type: "progress", data: { message: "Generated title and summary", percent: 20, header } };
+              } else if (parsed.type === "section" && parsed.section) {
+                sectionCount++;
+                sections.push(parsed.section);
+                yield { 
+                  type: "section", 
+                  data: { 
+                    section: parsed.section, 
+                    sectionNumber: sectionCount,
+                    percent: Math.min(20 + (sectionCount * 7), 90)
+                  } 
+                };
+              } else if (parsed.type === "complete") {
+                yield { type: "progress", data: { message: "Analysis complete", percent: 100 } };
+              }
+            } catch (e) {
+              // Not valid JSON yet, continue
+            }
+          }
+        }
+        // Keep the last incomplete line
+        fullContent = lines[lines.length - 1];
+      }
+    }
+
+    // If streaming didn't produce structured output, fall back to parsing full response
+    if (!header || sections.length === 0) {
+      const finalResponse = await stream.finalMessage();
+      const textContent = finalResponse.content.find((block) => block.type === "text");
+      const content = textContent?.type === "text" ? textContent.text : "";
+      
+      // Try to parse as single JSON
+      let jsonContent = content;
+      if (jsonContent.includes("```json")) {
+        jsonContent = jsonContent.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+      }
+      const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        yield {
+          type: "complete",
+          data: {
+            title: parsed.title || `Insights: ${bookTitle}`,
+            summary: parsed.summary || "",
+            keyThemes: parsed.keyThemes || [],
+            sections: parsed.sections || [],
+          },
+        };
+        return;
+      }
+    }
+
+    yield {
+      type: "complete",
+      data: {
+        title: header?.title || `Insights: ${bookTitle}`,
+        summary: header?.summary || "",
+        keyThemes: header?.keyThemes || [],
+        sections,
+      },
+    };
+  } catch (error) {
+    console.error("[Claude Streaming] Error:", error);
+    yield {
+      type: "error",
+      data: { message: error instanceof Error ? error.message : "Unknown error" },
+    };
+  }
+}
+
+/**
  * Check if Anthropic API key is configured
  */
 export function isClaudeConfigured(): boolean {

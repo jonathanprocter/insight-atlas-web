@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { InsightProgress } from "@/components/InsightProgress";
 import {
   BookOpen,
   ArrowLeft,
@@ -20,32 +20,39 @@ import {
 } from "lucide-react";
 
 export default function BookPage() {
-  const { user, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const bookId = parseInt(params.id || "0");
+  const [generatingInsightId, setGeneratingInsightId] = useState<number | null>(null);
 
   const { data: book, isLoading: bookLoading } = trpc.books.get.useQuery(
     { id: bookId },
-    { enabled: !!bookId && !!user }
+    { enabled: !!bookId }
   );
 
-  const { data: insights } = trpc.insights.getByBook.useQuery(
+  const { data: insights, refetch: refetchInsights } = trpc.insights.getByBook.useQuery(
     { bookId },
-    { enabled: !!bookId && !!user }
+    { enabled: !!bookId }
   );
 
   const generateMutation = trpc.insights.generate.useMutation({
     onSuccess: (data) => {
-      toast.success("Insights generated successfully!");
-      navigate(`/insight/${data.insightId}`);
+      setGeneratingInsightId(data.insightId);
     },
     onError: (error) => {
       toast.error(`Generation failed: ${error.message}`);
+      setGeneratingInsightId(null);
     },
   });
 
-  if (authLoading || bookLoading) {
+  const handleGenerationComplete = useCallback(() => {
+    if (generatingInsightId) {
+      toast.success("Insights generated successfully!");
+      navigate(`/insight/${generatingInsightId}`);
+    }
+  }, [generatingInsightId, navigate]);
+
+  if (bookLoading) {
     return <LoadingState />;
   }
 
@@ -82,9 +89,17 @@ export default function BookPage() {
           <Card className="premium-card mb-6 md:mb-8">
             <CardContent className="p-4 md:p-8">
               <div className="flex flex-col md:flex-row gap-4 md:gap-8">
-                {/* Book Cover Placeholder */}
-                <div className="w-32 h-44 md:w-48 md:h-64 mx-auto md:mx-0 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-12 h-12 md:w-16 md:h-16 text-primary/40" />
+                {/* Book Cover */}
+                <div className="w-32 h-44 md:w-48 md:h-64 mx-auto md:mx-0 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 shadow-lg">
+                  {book.coverUrl ? (
+                    <img
+                      src={book.coverUrl}
+                      alt={book.title || "Book cover"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BookOpen className="w-12 h-12 md:w-16 md:h-16 text-primary/40" />
+                  )}
                 </div>
 
                 {/* Book Details */}
@@ -152,26 +167,32 @@ export default function BookPage() {
           </Card>
 
           {/* Generation Progress */}
-          {generateMutation.isPending && (
-            <Card className="mb-6 md:mb-8 border-primary/30">
-              <CardContent className="p-6 md:p-8">
-                <div className="text-center">
-                  <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 relative">
-                    <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                  <h3 className="font-serif text-lg md:text-xl font-semibold text-foreground mb-2">
-                    Generating Insights
-                  </h3>
-                  <p className="text-sm md:text-base text-muted-foreground">
-                    Our AI is analyzing your book...
-                  </p>
-                  <p className="text-xs md:text-sm text-muted-foreground mt-2">
-                    This may take 1-2 minutes
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          {(generateMutation.isPending || generatingInsightId) && (
+            <div className="mb-6 md:mb-8">
+              {generatingInsightId ? (
+                <InsightProgress
+                  insightId={generatingInsightId}
+                  onComplete={handleGenerationComplete}
+                />
+              ) : (
+                <Card className="border-primary/30">
+                  <CardContent className="p-6 md:p-8">
+                    <div className="text-center">
+                      <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 relative">
+                        <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                      <h3 className="font-serif text-lg md:text-xl font-semibold text-foreground mb-2">
+                        Starting Generation
+                      </h3>
+                      <p className="text-sm md:text-base text-muted-foreground">
+                        Preparing to analyze your book...
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
 
           {/* Existing Insights */}

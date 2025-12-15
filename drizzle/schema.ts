@@ -29,6 +29,7 @@ export const books = mysqlTable("books", {
   fileUrl: text("fileUrl"),
   fileKey: varchar("fileKey", { length: 255 }),
   fileType: varchar("fileType", { length: 20 }),
+  coverUrl: text("coverUrl"), // URL to book cover image
   extractedText: text("extractedText"), // Full extracted text content
   wordCount: int("wordCount").default(0),
   pageCount: int("pageCount"),

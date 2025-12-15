@@ -358,10 +358,19 @@ function LibraryItemCard({
         <div className="flex gap-3 md:gap-4">
           {/* Book Cover */}
           <div
-            className="w-16 h-22 md:w-20 md:h-28 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 cursor-pointer touch-target"
+            className="w-16 h-22 md:w-20 md:h-28 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 cursor-pointer touch-target shadow-sm"
             onClick={() => onNavigate(hasInsight ? `/insight/${insight.id}` : `/book/${book?.id}`)}
           >
-            <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-primary/40" />
+            {book?.coverUrl ? (
+              <img
+                src={book.coverUrl}
+                alt={book.title || "Book cover"}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-primary/40" />
+            )}
           </div>
 
           {/* Content */}
@@ -494,8 +503,17 @@ function GridItemCard({
         onClick={() => onNavigate(hasInsight ? `/insight/${insight.id}` : `/book/${book?.id}`)}
       >
         {/* Book Cover */}
-        <div className="aspect-[3/4] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
-          <BookOpen className="w-12 h-12 text-primary/30" />
+        <div className="aspect-[3/4] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative overflow-hidden">
+          {book?.coverUrl ? (
+            <img
+              src={book.coverUrl}
+              alt={book.title || "Book cover"}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <BookOpen className="w-12 h-12 text-primary/30" />
+          )}
           
           {/* Favorite Badge */}
           {item.isFavorite && (
