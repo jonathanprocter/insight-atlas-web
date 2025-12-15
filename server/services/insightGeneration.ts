@@ -59,6 +59,80 @@ export function selectVisualTypes(content: string, themes: string[]): VisualType
 }
 
 /**
+ * Generate minimal insights when book text is not available
+ */
+async function generateMinimalInsight(
+  bookTitle: string,
+  bookAuthor: string | null
+): Promise<GeneratedInsight> {
+  const authorInfo = bookAuthor ? ` by ${bookAuthor}` : "";
+  
+  const systemPrompt = `You are an expert literary analyst. Based only on the book title and author, generate a brief analysis. Respond with valid JSON:
+{
+  "title": "Insights on [Book Title]",
+  "summary": "A brief overview based on the title",
+  "keyThemes": ["theme1", "theme2", "theme3"],
+  "sections": [{"type": "paragraph", "content": "..."}],
+  "audioScript": "A brief audio summary"
+}`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Generate insights for: "${bookTitle}"${authorInfo}` },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content || typeof content !== 'string') {
+      throw new Error("No content in AI response");
+    }
+
+    // Remove markdown code blocks if present
+    let jsonContent = content.trim();
+    if (jsonContent.startsWith('```json')) {
+      jsonContent = jsonContent.slice(7);
+    } else if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.slice(3);
+    }
+    if (jsonContent.endsWith('```')) {
+      jsonContent = jsonContent.slice(0, -3);
+    }
+    jsonContent = jsonContent.trim();
+
+    const parsed = JSON.parse(jsonContent);
+    const wordCount = parsed.audioScript?.split(/\s+/).length || 0;
+
+    return {
+      title: parsed.title || `Insights: ${bookTitle}`,
+      summary: parsed.summary || "Analysis based on book title.",
+      sections: parsed.sections || [{ type: "paragraph", content: "Content analysis pending." }],
+      keyThemes: parsed.keyThemes || ["Literature", "Analysis"],
+      recommendedVisualTypes: ["infographic", "mindMap"],
+      audioScript: parsed.audioScript || `This is an analysis of ${bookTitle}.`,
+      wordCount,
+    };
+  } catch (error) {
+    console.error("[Minimal Insight Generation] Error:", error);
+    // Return a fallback insight
+    return {
+      title: `Insights: ${bookTitle}`,
+      summary: `Analysis of "${bookTitle}"${authorInfo}. Full content extraction was not available.`,
+      sections: [
+        { type: "heading", content: "About This Book" },
+        { type: "paragraph", content: `"${bookTitle}" is a work${authorInfo}. Due to content extraction limitations, this analysis is based on available metadata.` },
+        { type: "insightNote", content: "Upload a TXT version for more detailed analysis.", title: "Tip" },
+      ],
+      keyThemes: ["Literature", "Reading"],
+      recommendedVisualTypes: ["infographic"],
+      audioScript: `Welcome to the insights for ${bookTitle}${authorInfo}. This analysis provides an overview based on the book's metadata.`,
+      wordCount: 30,
+    };
+  }
+}
+
+/**
  * Generate comprehensive book insights using AI
  */
 export async function generateInsight(
@@ -66,6 +140,12 @@ export async function generateInsight(
   bookTitle: string,
   bookAuthor: string | null
 ): Promise<GeneratedInsight> {
+  // Handle empty or missing text
+  if (!bookText || bookText.trim().length < 50) {
+    // Generate insights based on title and author only
+    return generateMinimalInsight(bookTitle, bookAuthor);
+  }
+
   // Truncate text if too long (keep first 80k chars for context)
   const maxChars = 80000;
   const truncatedText = bookText.length > maxChars 
@@ -190,7 +270,19 @@ Generate a detailed analysis with multiple section types, key themes, and an eng
       throw new Error("No content in AI response");
     }
 
-    const parsed = JSON.parse(content);
+    // Remove markdown code blocks if present
+    let jsonContent = content.trim();
+    if (jsonContent.startsWith('```json')) {
+      jsonContent = jsonContent.slice(7);
+    } else if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.slice(3);
+    }
+    if (jsonContent.endsWith('```')) {
+      jsonContent = jsonContent.slice(0, -3);
+    }
+    jsonContent = jsonContent.trim();
+
+    const parsed = JSON.parse(jsonContent);
     
     // Calculate word count
     const wordCount = parsed.audioScript.split(/\s+/).length;

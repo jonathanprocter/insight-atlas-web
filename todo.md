@@ -77,3 +77,25 @@
 - [x] Fix PDF upload crash during extraction
 - [x] Fix EPUB upload crash during extraction
 - [x] Remove display of raw extracted content
+
+
+## Upload Progress Bar
+- [x] Create UploadProgress component with animated stages
+- [x] Integrate progress bar into Home page upload flow
+- [x] Show stages: reading, extracting, saving, complete
+- [x] Handle error state with retry option Create UploadProgress component with animated progress bar
+- [ ] Show upload stages (Reading file, Extracting content, Saving to library)
+- [ ] Integrate progress bar into Home page upload flow
+
+- [x] Fix insight generation failure when clicking generate button
+
+
+## iPhone Optimization
+- [x] Add mobile viewport meta tags and safe area insets
+- [x] Make all touch targets at least 44px for iOS accessibility
+- [x] Add responsive breakpoints for iPhone screen sizes
+- [x] Optimize typography for mobile readability
+- [x] Add touch-friendly interactions and feedback
+- [x] Mobile-optimized audio player with touch-friendly controls
+- [x] Floating action button for mobile upload
+- [x] Responsive cards and layouts for all pages

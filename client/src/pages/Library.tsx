@@ -3,7 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -17,14 +17,13 @@ import {
   Clock,
   FileText,
   Headphones,
-  FileDown,
   Sparkles,
   Library as LibraryIcon,
-  Filter,
   MoreVertical,
   CheckCircle,
   BookMarked,
   Loader2,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -130,21 +129,21 @@ export default function LibraryPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container py-4">
+      <header className="border-b border-border bg-card safe-area-top">
+        <div className="container py-3 md:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+            <div className="flex items-center gap-2 md:gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/")} className="touch-target">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-primary-foreground" />
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
                 </div>
-                <span className="font-serif text-2xl font-semibold text-foreground">Library</span>
+                <span className="font-serif text-lg md:text-2xl font-semibold text-foreground">Library</span>
               </div>
             </div>
-            <Button className="btn-gold" onClick={() => navigate("/")}>
+            <Button className="btn-gold btn-mobile hidden md:flex" onClick={() => navigate("/")}>
               <Sparkles className="w-4 h-4 mr-2" />
               Upload Book
             </Button>
@@ -153,54 +152,54 @@ export default function LibraryPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container py-8">
-        {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
+      <main className="container py-4 md:py-8 safe-area-bottom">
+        {/* Search */}
+        <div className="mb-4 md:mb-6">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Search books by title or author..."
+              placeholder="Search books..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-11 md:h-10 text-base"
             />
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="grid w-full grid-cols-4 max-w-md">
-            <TabsTrigger value="all" className="flex items-center gap-2">
+        {/* Tabs - Mobile Optimized */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 md:mb-8">
+          <TabsList className="w-full grid grid-cols-4 h-auto p-1">
+            <TabsTrigger value="all" className="flex flex-col md:flex-row items-center gap-1 md:gap-2 py-2 px-2 md:px-4 text-xs md:text-sm touch-target">
               <LibraryIcon className="w-4 h-4" />
-              All
+              <span>All</span>
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="flex items-center gap-2">
+            <TabsTrigger value="favorites" className="flex flex-col md:flex-row items-center gap-1 md:gap-2 py-2 px-2 md:px-4 text-xs md:text-sm touch-target">
               <Star className="w-4 h-4" />
-              Favorites
+              <span>Favorites</span>
             </TabsTrigger>
-            <TabsTrigger value="reading" className="flex items-center gap-2">
+            <TabsTrigger value="reading" className="flex flex-col md:flex-row items-center gap-1 md:gap-2 py-2 px-2 md:px-4 text-xs md:text-sm touch-target">
               <BookOpen className="w-4 h-4" />
-              Reading
+              <span>Reading</span>
             </TabsTrigger>
-            <TabsTrigger value="completed" className="flex items-center gap-2">
+            <TabsTrigger value="completed" className="flex flex-col md:flex-row items-center gap-1 md:gap-2 py-2 px-2 md:px-4 text-xs md:text-sm touch-target">
               <CheckCircle className="w-4 h-4" />
-              Completed
+              <span>Done</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Library Items */}
         {isLoading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    <div className="w-20 h-28 bg-muted rounded-lg" />
-                    <div className="flex-1 space-y-3">
-                      <div className="h-5 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-1/2" />
-                      <div className="h-3 bg-muted rounded w-1/4" />
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex gap-3 md:gap-4">
+                    <div className="w-16 h-22 md:w-20 md:h-28 bg-muted rounded-lg" />
+                    <div className="flex-1 space-y-2 md:space-y-3">
+                      <div className="h-4 md:h-5 bg-muted rounded w-3/4" />
+                      <div className="h-3 md:h-4 bg-muted rounded w-1/2" />
+                      <div className="h-2 md:h-3 bg-muted rounded w-1/4" />
                     </div>
                   </div>
                 </CardContent>
@@ -214,7 +213,7 @@ export default function LibraryPage() {
             onUpload={() => navigate("/")}
           />
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {filteredItems.map((item) => (
               <LibraryItemCard
                 key={item.id}
@@ -228,20 +227,28 @@ export default function LibraryPage() {
         )}
       </main>
 
+      {/* Floating Action Button - Mobile Only */}
+      <Button
+        className="fab md:hidden w-14 h-14 rounded-full shadow-lg btn-gold p-0"
+        onClick={() => navigate("/")}
+      >
+        <Plus className="w-6 h-6" />
+      </Button>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="mx-4 max-w-sm md:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this book?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-lg md:text-xl">Delete this book?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm md:text-base">
               This will permanently delete the book and all associated insights. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -272,45 +279,45 @@ function LibraryItemCard({
   const hasInsight = !!insight;
 
   return (
-    <Card className="premium-card group hover:shadow-xl transition-all">
-      <CardContent className="p-6">
-        <div className="flex gap-4">
+    <Card className="premium-card group hover:shadow-xl transition-all card-mobile">
+      <CardContent className="p-4 md:p-6">
+        <div className="flex gap-3 md:gap-4">
           {/* Book Cover */}
           <div
-            className="w-20 h-28 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 cursor-pointer"
+            className="w-16 h-22 md:w-20 md:h-28 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 cursor-pointer touch-target"
             onClick={() => onNavigate(hasInsight ? `/insight/${insight.id}` : `/book/${book?.id}`)}
           >
-            <BookOpen className="w-8 h-8 text-primary/40" />
+            <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-primary/40" />
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div
-                className="cursor-pointer"
+                className="cursor-pointer flex-1 min-w-0"
                 onClick={() => onNavigate(hasInsight ? `/insight/${insight.id}` : `/book/${book?.id}`)}
               >
-                <h3 className="font-serif text-lg font-semibold text-foreground line-clamp-2 hover:text-primary transition-colors">
+                <h3 className="font-serif text-base md:text-lg font-semibold text-foreground line-clamp-2 hover:text-primary transition-colors">
                   {book?.title || "Untitled"}
                 </h3>
                 {book?.author && (
-                  <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 truncate">{book.author}</p>
                 )}
               </div>
 
               {/* Actions Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0">
+                  <Button variant="ghost" size="icon" className="shrink-0 w-8 h-8 md:w-10 md:h-10 touch-target">
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onToggleFavorite}>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={onToggleFavorite} className="py-3">
                     {item.isFavorite ? (
                       <>
                         <StarOff className="w-4 h-4 mr-2" />
-                        Remove from Favorites
+                        Remove Favorite
                       </>
                     ) : (
                       <>
@@ -320,15 +327,13 @@ function LibraryItemCard({
                     )}
                   </DropdownMenuItem>
                   {hasInsight && (
-                    <>
-                      <DropdownMenuItem onClick={() => onNavigate(`/insight/${insight.id}`)}>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        View Insights
-                      </DropdownMenuItem>
-                    </>
+                    <DropdownMenuItem onClick={() => onNavigate(`/insight/${insight.id}`)} className="py-3">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      View Insights
+                    </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive py-3">
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
                   </DropdownMenuItem>
@@ -337,11 +342,11 @@ function LibraryItemCard({
             </div>
 
             {/* Metadata */}
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2 md:mt-3 text-xs text-muted-foreground">
               {book?.wordCount && (
                 <span className="flex items-center gap-1">
                   <FileText className="w-3 h-3" />
-                  {book.wordCount.toLocaleString()} words
+                  {(book.wordCount / 1000).toFixed(0)}k
                 </span>
               )}
               <span className="flex items-center gap-1">
@@ -351,23 +356,23 @@ function LibraryItemCard({
             </div>
 
             {/* Status Badges */}
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2 md:mt-3">
               {item.isFavorite && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs">
-                  <Star className="w-3 h-3 fill-current" />
-                  Favorite
+                <span className="inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs">
+                  <Star className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
+                  <span className="hidden md:inline">Favorite</span>
                 </span>
               )}
               {hasInsight && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
-                  <Sparkles className="w-3 h-3" />
-                  Insights Ready
+                <span className="inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                  <Sparkles className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  <span className="hidden md:inline">Insights</span>
                 </span>
               )}
               {insight?.audioUrl && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs">
-                  <Headphones className="w-3 h-3" />
-                  Audio
+                <span className="inline-flex items-center gap-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full bg-blue-100 text-blue-700 text-xs">
+                  <Headphones className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  <span className="hidden md:inline">Audio</span>
                 </span>
               )}
             </div>
@@ -405,12 +410,12 @@ function EmptyState({
   }
 
   return (
-    <div className="text-center py-16">
-      <BookMarked className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-      <h3 className="font-serif text-xl font-semibold text-foreground mb-2">{message}</h3>
-      <p className="text-muted-foreground mb-6">{description}</p>
+    <div className="text-center py-12 md:py-16 px-4">
+      <BookMarked className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 text-muted-foreground" />
+      <h3 className="font-serif text-lg md:text-xl font-semibold text-foreground mb-2">{message}</h3>
+      <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">{description}</p>
       {!searchQuery && activeTab === "all" && (
-        <Button className="btn-gold" onClick={onUpload}>
+        <Button className="btn-gold btn-mobile" onClick={onUpload}>
           <Sparkles className="w-4 h-4 mr-2" />
           Upload Your First Book
         </Button>
@@ -421,13 +426,13 @@ function EmptyState({
 
 function LoadingState() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 relative">
+    <div className="min-h-screen flex items-center justify-center bg-background safe-area-top safe-area-bottom">
+      <div className="text-center px-4">
+        <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 relative">
           <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
           <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <p className="text-muted-foreground font-serif text-lg">Loading library...</p>
+        <p className="text-muted-foreground font-serif text-base md:text-lg">Loading library...</p>
       </div>
     </div>
   );
