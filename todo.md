@@ -127,3 +127,12 @@
 - [x] Filter bar (All, Favorites, Reading, Completed)
 - [ ] Book cover extraction and display
 - [x] Share sheet for exports (Web Share API)
+
+
+## Anthropic Claude Integration
+- [x] Create Anthropic Claude service for content generation
+- [x] Update insight generation to use Claude for analysis and writing
+- [x] Keep OpenAI/built-in LLM for audio scripts and other tasks
+- [ ] Test Claude integration with book insight generation
+
+- [x] Enhance audio script to convey visual content meaningfully (not just describe visuals)

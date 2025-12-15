@@ -1,5 +1,6 @@
 import { invokeLLM } from "../_core/llm";
 import { VISUAL_TYPE_INFO, VisualType } from "../../shared/types";
+import { generateBookInsightsWithClaude, isClaudeConfigured } from "./claudeService";
 
 export interface InsightSection {
   type: "heading" | "paragraph" | "quote" | "authorSpotlight" | "insightNote" | 
@@ -134,6 +135,7 @@ async function generateMinimalInsight(
 
 /**
  * Generate comprehensive book insights using AI
+ * Uses Claude for content generation when available, falls back to built-in LLM
  */
 export async function generateInsight(
   bookText: string,
@@ -146,6 +148,52 @@ export async function generateInsight(
     return generateMinimalInsight(bookTitle, bookAuthor);
   }
 
+  // Try Claude first for superior content generation
+  if (isClaudeConfigured()) {
+    try {
+      console.log("[Insight Generation] Using Claude for content generation");
+      const claudeResult = await generateBookInsightsWithClaude(
+        bookTitle,
+        bookAuthor,
+        bookText,
+        "premium"
+      );
+      
+      // Generate audio script using built-in LLM with full section content
+      // This creates a rich narration that conveys the actual insights, not just visual descriptions
+      const audioScript = await generateAudioScriptFromInsights(
+        claudeResult.title,
+        claudeResult.summary,
+        claudeResult.keyThemes,
+        claudeResult.sections
+      );
+      
+      // Select visual types based on content
+      const recommendedVisualTypes = selectVisualTypes(
+        claudeResult.summary + " " + claudeResult.sections.map((s) => s.content || "").join(" "),
+        claudeResult.keyThemes
+      );
+      
+      const wordCount = audioScript.split(/\s+/).length;
+      
+      return {
+        title: claudeResult.title,
+        summary: claudeResult.summary,
+        sections: claudeResult.sections as InsightSection[],
+        keyThemes: claudeResult.keyThemes,
+        recommendedVisualTypes,
+        audioScript,
+        wordCount,
+      };
+    } catch (error) {
+      console.error("[Insight Generation] Claude failed, falling back to built-in LLM:", error);
+      // Fall through to built-in LLM
+    }
+  }
+
+  // Fallback: Use built-in LLM
+  console.log("[Insight Generation] Using built-in LLM");
+  
   // Truncate text if too long (keep first 80k chars for context)
   const maxChars = 80000;
   const truncatedText = bookText.length > maxChars 
@@ -352,5 +400,111 @@ For other types: Use appropriate structure for the visualization.`;
   } catch (error) {
     console.error("[Visual Data Generation] Error:", error);
     return {};
+  }
+}
+
+
+/**
+ * Generate audio script from insights using built-in LLM
+ * Creates a rich narration that conveys the actual content and insights,
+ * not just descriptions of visual elements
+ */
+async function generateAudioScriptFromInsights(
+  title: string,
+  summary: string,
+  keyThemes: string[],
+  sections?: Array<{ type: string; content?: string; title?: string; items?: string[] }>
+): Promise<string> {
+  // Build a content-rich representation of all sections
+  let sectionContent = "";
+  if (sections && sections.length > 0) {
+    sectionContent = sections.map((section, index) => {
+      let text = "";
+      switch (section.type) {
+        case "heading":
+          text = `\n## ${section.content}`;
+          break;
+        case "paragraph":
+          text = section.content || "";
+          break;
+        case "quote":
+          text = `Quote: "${section.content}"${section.title ? ` - ${section.title}` : ""}`;
+          break;
+        case "insightNote":
+          text = `Key Insight${section.title ? ` (${section.title})` : ""}: ${section.content}`;
+          break;
+        case "authorSpotlight":
+          text = `About the Author: ${section.content}`;
+          break;
+        case "alternativePerspective":
+          text = `Alternative View: ${section.content}`;
+          break;
+        case "researchInsight":
+          text = `Research Finding: ${section.content}`;
+          break;
+        case "keyTakeaways":
+        case "bulletList":
+        case "numberedList":
+          if (section.items && section.items.length > 0) {
+            text = `${section.title || "Key Points"}: ${section.items.join("; ")}`;
+          }
+          break;
+        case "exercise":
+          text = `Practical Exercise${section.title ? ` - ${section.title}` : ""}: ${section.content}`;
+          break;
+        default:
+          text = section.content || "";
+      }
+      return text;
+    }).filter(t => t.length > 0).join("\n\n");
+  }
+
+  const systemPrompt = `You are a professional narrator creating an engaging audio script for a book insights podcast.
+
+Your task is to transform written insights into a compelling audio experience that:
+1. CONVEYS the actual content, ideas, and insights - not just describes what visuals show
+2. Presents quotes naturally as if reading them aloud with proper attribution
+3. Explains key insights and takeaways in a way that listeners can absorb and remember
+4. Weaves together different sections into a cohesive narrative flow
+5. Uses vivid language to paint mental pictures of concepts and ideas
+6. Includes natural transitions between topics
+7. Emphasizes actionable insights and memorable quotes
+
+Write in a warm, conversational tone perfect for audio narration.
+The script should be 5-7 minutes when read aloud (approximately 700-1000 words).
+Do NOT say things like "as shown in the diagram" or "the chart illustrates" - instead, directly explain the concepts.
+Do NOT include stage directions, notes, or formatting - just the spoken content.`;
+
+  const userPrompt = `Create an engaging audio narration that brings these book insights to life:
+
+**Title:** ${title}
+
+**Summary:** ${summary}
+
+**Key Themes:** ${keyThemes.join(", ")}
+
+**Full Content to Narrate:**
+${sectionContent || summary}
+
+Transform this into a flowing, engaging audio script that conveys all the key insights, quotes, and takeaways in a way that's perfect for listening. Make the listener feel like they're having an enlightening conversation about the book.`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (content && typeof content === 'string') {
+      return content.trim();
+    }
+    
+    // Fallback script
+    return `Welcome to Insight Atlas. Today we're exploring "${title}". ${summary} The key themes we'll cover include ${keyThemes.join(", ")}. Thank you for listening.`;
+  } catch (error) {
+    console.error("[Audio Script Generation] Error:", error);
+    return `Welcome to Insight Atlas. Today we're exploring "${title}". ${summary}`;
   }
 }
