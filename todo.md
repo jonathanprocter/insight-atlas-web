@@ -169,3 +169,8 @@
 - [x] Remove auth checks from Insight page (already public)
 - [x] Remove auth checks from Library page (already public)
 - [x] Update welcome message to be generic ("Transform Your Books")
+
+
+## Bug Fix - Extraction Error
+- [x] Fix "Data too long for column 'extractedText'" error
+- [x] Changed extractedText column from text to longtext for large books

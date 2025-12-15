@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, longtext, timestamp, varchar, boolean, json } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -30,7 +30,7 @@ export const books = mysqlTable("books", {
   fileKey: varchar("fileKey", { length: 255 }),
   fileType: varchar("fileType", { length: 20 }),
   coverUrl: text("coverUrl"), // URL to book cover image
-  extractedText: text("extractedText"), // Full extracted text content
+  extractedText: longtext("extractedText"), // Full extracted text content (longtext for large books)
   wordCount: int("wordCount").default(0),
   pageCount: int("pageCount"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
