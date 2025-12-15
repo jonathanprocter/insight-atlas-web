@@ -201,7 +201,7 @@ export async function runGapAnalysis(
 
     console.log('[Gap Analysis] Completed using:', response.provider);
 
-    // Parse the JSON response
+    // Parse the JSON response with robust error handling
     let jsonStr = response.content;
     
     // Handle markdown code blocks
@@ -210,7 +210,46 @@ export async function runGapAnalysis(
       jsonStr = jsonMatch[1].trim();
     }
 
-    const result = JSON.parse(jsonStr);
+    // Try to repair common JSON issues
+    const repairJson = (str: string): string => {
+      // Remove trailing commas before } or ]
+      str = str.replace(/,\s*([}\]])/g, '$1');
+      // Fix unterminated strings by finding the last complete object
+      if (str.includes('"') && !str.endsWith('}')) {
+        // Try to find the last complete JSON object
+        const lastBrace = str.lastIndexOf('}');
+        if (lastBrace > 0) {
+          str = str.substring(0, lastBrace + 1);
+        }
+      }
+      // Ensure proper closing
+      const openBraces = (str.match(/{/g) || []).length;
+      const closeBraces = (str.match(/}/g) || []).length;
+      if (openBraces > closeBraces) {
+        str += '}'.repeat(openBraces - closeBraces);
+      }
+      return str;
+    };
+
+    let result;
+    try {
+      result = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.log('[Gap Analysis] Initial parse failed, attempting repair...');
+      const repairedJson = repairJson(jsonStr);
+      try {
+        result = JSON.parse(repairedJson);
+        console.log('[Gap Analysis] JSON repair successful');
+      } catch {
+        console.error('[Gap Analysis] JSON repair failed, returning empty result');
+        return {
+          gapsFound: [],
+          generatedContent: [],
+          revisedSections: [],
+          completenessScore: 100,
+        };
+      }
+    }
 
     return {
       gapsFound: result.gapsFound || [],

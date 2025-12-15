@@ -291,3 +291,8 @@
 - [x] Increase Anthropic API timeout for large books (10 minutes)
 - [x] Smart content extraction for large books (preserves chapter structure)
 - [x] Maintains 100% effectiveness by extracting key sections from each chapter
+
+
+## Bug Fix - String Pattern Error
+- [x] Fix "The string did not match the expected pattern" error (added URL validation in Insight.tsx)
+- [x] Fix JSON parsing errors in Gap Analysis (added robust JSON repair logic)

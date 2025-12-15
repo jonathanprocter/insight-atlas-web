@@ -117,7 +117,18 @@ export default function InsightPage() {
 
   // Audio player controls
   useEffect(() => {
-    if (insight?.audioUrl && !audioRef.current) {
+    // Validate audioUrl is a proper URL before creating Audio element
+    const isValidUrl = (url: string | null | undefined): boolean => {
+      if (!url) return false;
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (insight?.audioUrl && isValidUrl(insight.audioUrl) && !audioRef.current) {
       audioRef.current = new Audio(insight.audioUrl);
       audioRef.current.addEventListener("timeupdate", () => {
         if (audioRef.current) {
