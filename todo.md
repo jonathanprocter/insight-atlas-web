@@ -174,3 +174,13 @@
 ## Bug Fix - Extraction Error
 - [x] Fix "Data too long for column 'extractedText'" error
 - [x] Changed extractedText column from text to longtext for large books
+
+
+## Enhance Insight Detail Level
+- [x] Update Claude prompt to generate more detailed, comprehensive insights (3000-5000 words)
+- [x] Add more sections: Executive Summary, Key Themes, Notable Quotes, Chapter Analysis
+- [x] Include specific page/chapter references
+- [x] Add actionable takeaways and practical applications
+- [x] Include author context and book significance
+- [x] Require 15-20 diverse sections with rich content
+- [x] UI already supports all section types
