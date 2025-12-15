@@ -155,3 +155,9 @@
 - [x] Fix PDF text extraction using pdfjs-dist directly
 - [x] Fix EPUB text extraction with improved error handling
 - [x] Ensure extracted text is saved to database correctly
+
+
+## Bug Fix - EPUB Extraction Returns 0 Words
+- [x] Fix EPUB extraction returning empty content
+- [x] Use alternative EPUB parsing approach (adm-zip + xml parsing)
+- [x] Test with actual EPUB file (Frankenstein - 3055 words from 5 chapters)

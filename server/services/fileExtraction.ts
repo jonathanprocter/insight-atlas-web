@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import AdmZip from "adm-zip";
 
 export interface ExtractedContent {
   title: string;
@@ -91,7 +92,6 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
     };
   } catch (error) {
     console.error("[PDF Extraction] Error:", error);
-    // Return minimal content on failure instead of crashing
     return {
       title: "PDF Document",
       author: null,
@@ -106,187 +106,239 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
 }
 
 /**
- * Extract text content from an EPUB file buffer
+ * Strip HTML tags and decode entities from text
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Parse XML to extract text content
+ */
+function extractTextFromXml(xml: string): string {
+  // Extract text from body or content areas
+  const bodyMatch = xml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) {
+    return stripHtml(bodyMatch[1]);
+  }
+  
+  // Fallback: strip all tags
+  return stripHtml(xml);
+}
+
+/**
+ * Extract text content from an EPUB file buffer using adm-zip
  */
 export async function extractFromEPUB(buffer: Buffer): Promise<ExtractedContent> {
-  return new Promise((resolve) => {
-    const tempPath = path.join(os.tmpdir(), `epub-${Date.now()}-${Math.random().toString(36).slice(2)}.epub`);
+  try {
+    console.log("[EPUB Extraction] Starting extraction, buffer size:", buffer.length);
     
-    try {
-      fs.writeFileSync(tempPath, buffer);
+    const zip = new AdmZip(buffer);
+    const zipEntries = zip.getEntries();
+    
+    console.log("[EPUB Extraction] Found", zipEntries.length, "entries in EPUB");
+    
+    let title = "EPUB Document";
+    let author: string | null = null;
+    const textParts: string[] = [];
+    let contentFiles: string[] = [];
+    
+    // First, find and parse container.xml to get the OPF file location
+    const containerEntry = zipEntries.find(e => e.entryName.toLowerCase().includes("container.xml"));
+    let opfPath = "";
+    
+    if (containerEntry) {
+      const containerXml = containerEntry.getData().toString("utf-8");
+      const rootfileMatch = containerXml.match(/rootfile[^>]*full-path="([^"]+)"/i);
+      if (rootfileMatch) {
+        opfPath = rootfileMatch[1];
+        console.log("[EPUB Extraction] Found OPF path:", opfPath);
+      }
+    }
+    
+    // Find and parse the OPF file for metadata and spine
+    const opfEntry = zipEntries.find(e => 
+      e.entryName === opfPath || 
+      e.entryName.toLowerCase().endsWith(".opf")
+    );
+    
+    if (opfEntry) {
+      const opfXml = opfEntry.getData().toString("utf-8");
+      console.log("[EPUB Extraction] Parsing OPF file:", opfEntry.entryName);
       
-      // Dynamic import
-      import("epub2").then(({ default: EPub }) => {
-        const epub = new EPub(tempPath);
-        
-        const cleanup = () => {
-          try {
-            if (fs.existsSync(tempPath)) {
-              fs.unlinkSync(tempPath);
-            }
-          } catch {
-            // Ignore cleanup errors
-          }
-        };
-        
-        // Set a timeout to prevent hanging
-        const timeout = setTimeout(() => {
-          cleanup();
-          resolve({
-            title: "EPUB Document",
-            author: null,
-            text: "",
-            wordCount: 0,
-            pageCount: null,
-            fileType: "epub",
-            coverImage: null,
-            coverMimeType: null,
-          });
-        }, 60000); // Increased timeout to 60 seconds
-        
-        epub.on("error", (err: Error) => {
-          clearTimeout(timeout);
-          console.error("[EPUB Extraction] Error:", err);
-          cleanup();
-          resolve({
-            title: "EPUB Document",
-            author: null,
-            text: "",
-            wordCount: 0,
-            pageCount: null,
-            fileType: "epub",
-            coverImage: null,
-            coverMimeType: null,
-          });
-        });
-        
-        epub.on("end", async () => {
-          clearTimeout(timeout);
-          try {
-            const title = epub.metadata?.title || "EPUB Document";
-            const author = epub.metadata?.creator || null;
-            
-            console.log(`[EPUB Extraction] Processing: ${title} by ${author || "Unknown"}`);
-            
-            // Extract text from chapters with error handling
-            const chapters: string[] = [];
-            const flow = epub.flow || [];
-            
-            console.log(`[EPUB Extraction] Found ${flow.length} chapters`);
-            
-            for (let i = 0; i < Math.min(flow.length, 100); i++) {
-              const chapter = flow[i];
-              if (chapter.id) {
-                try {
-                  const chapterText = await new Promise<string>((res) => {
-                    const chapterTimeout = setTimeout(() => res(""), 10000);
-                    epub.getChapter(chapter.id!, (err: Error | null, text?: string) => {
-                      clearTimeout(chapterTimeout);
-                      if (err) {
-                        console.warn(`[EPUB Extraction] Chapter ${i} error:`, err.message);
-                        res("");
-                      } else {
-                        res(text || "");
-                      }
-                    });
-                  });
-                  
-                  // Strip HTML tags
-                  const cleanText = chapterText
-                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-                    .replace(/<[^>]*>/g, " ")
-                    .replace(/&nbsp;/g, " ")
-                    .replace(/&amp;/g, "&")
-                    .replace(/&lt;/g, "<")
-                    .replace(/&gt;/g, ">")
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&#x27;/g, "'")
-                    .replace(/&apos;/g, "'")
-                    .replace(/\s+/g, " ")
-                    .trim();
-                  
-                  if (cleanText && cleanText.length > 20) {
-                    chapters.push(cleanText);
-                  }
-                } catch (chapterError) {
-                  console.warn(`[EPUB Extraction] Chapter ${i} processing error:`, chapterError);
-                }
-              }
-            }
-            
-            const text = chapters.join("\n\n");
-            const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
-            
-            console.log(`[EPUB Extraction] Extracted ${wordCount} words from ${chapters.length} chapters`);
-            
-            cleanup();
-            
-            resolve({
-              title,
-              author,
-              text,
-              wordCount,
-              pageCount: flow.length,
-              fileType: "epub",
-              coverImage: null,
-              coverMimeType: null,
-            });
-          } catch (error) {
-            console.error("[EPUB Extraction] Processing error:", error);
-            cleanup();
-            resolve({
-              title: "EPUB Document",
-              author: null,
-              text: "",
-              wordCount: 0,
-              pageCount: null,
-              fileType: "epub",
-              coverImage: null,
-              coverMimeType: null,
-            });
-          }
-        });
-        
-        epub.parse();
-      }).catch((importError) => {
-        console.error("[EPUB Extraction] Import error:", importError);
-        try {
-          if (fs.existsSync(tempPath)) {
-            fs.unlinkSync(tempPath);
-          }
-        } catch {}
-        resolve({
-          title: "EPUB Document",
-          author: null,
-          text: "",
-          wordCount: 0,
-          pageCount: null,
-          fileType: "epub",
-          coverImage: null,
-          coverMimeType: null,
-        });
-      });
-    } catch (error) {
-      console.error("[EPUB Extraction] Setup error:", error);
-      try {
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
+      // Extract title
+      const titleMatch = opfXml.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/i);
+      if (titleMatch) {
+        title = stripHtml(titleMatch[1]);
+        console.log("[EPUB Extraction] Found title:", title);
+      }
+      
+      // Extract author
+      const authorMatch = opfXml.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/i);
+      if (authorMatch) {
+        author = stripHtml(authorMatch[1]);
+        console.log("[EPUB Extraction] Found author:", author);
+      }
+      
+      // Get the base path for content files
+      const opfDir = path.dirname(opfEntry.entryName);
+      
+      // Extract spine order (reading order)
+      const spineIds: string[] = [];
+      let spineMatch;
+      const spineRegex = /<itemref[^>]*idref="([^"]+)"/gi;
+      while ((spineMatch = spineRegex.exec(opfXml)) !== null) {
+        spineIds.push(spineMatch[1]);
+      }
+      
+      // Build a map of manifest items
+      const manifestItems: Record<string, string> = {};
+      let manifestMatch;
+      const manifestRegex = /<item[^>]*id="([^"]+)"[^>]*href="([^"]+)"/gi;
+      while ((manifestMatch = manifestRegex.exec(opfXml)) !== null) {
+        manifestItems[manifestMatch[1]] = manifestMatch[2];
+      }
+      
+      // Also try reverse order (href before id)
+      const manifestRegex2 = /<item[^>]*href="([^"]+)"[^>]*id="([^"]+)"/gi;
+      while ((manifestMatch = manifestRegex2.exec(opfXml)) !== null) {
+        manifestItems[manifestMatch[2]] = manifestMatch[1];
+      }
+      
+      console.log("[EPUB Extraction] Found", spineIds.length, "spine items and", Object.keys(manifestItems).length, "manifest items");
+      
+      // Get content files in spine order
+      for (const spineId of spineIds) {
+        const href = manifestItems[spineId];
+        if (href) {
+          const fullPath = opfDir ? `${opfDir}/${href}` : href;
+          contentFiles.push(fullPath);
         }
-      } catch {}
-      resolve({
-        title: "EPUB Document",
-        author: null,
-        text: "",
-        wordCount: 0,
-        pageCount: null,
+      }
+      
+      // If no spine found, fall back to all HTML/XHTML files
+      if (contentFiles.length === 0) {
+        contentFiles = zipEntries
+          .filter(e => /\.(x?html?|xml)$/i.test(e.entryName) && !e.entryName.includes("toc"))
+          .map(e => e.entryName);
+      }
+    } else {
+      // No OPF found, fall back to all HTML/XHTML files
+      console.log("[EPUB Extraction] No OPF file found, using fallback");
+      contentFiles = zipEntries
+        .filter(e => /\.(x?html?|xml)$/i.test(e.entryName) && !e.entryName.includes("toc"))
+        .map(e => e.entryName);
+    }
+    
+    console.log("[EPUB Extraction] Processing", contentFiles.length, "content files");
+    
+    // Extract text from each content file
+    for (const contentPath of contentFiles.slice(0, 100)) {
+      // Handle URL-encoded paths and normalize
+      const normalizedPath = decodeURIComponent(contentPath).replace(/\\/g, "/");
+      
+      const entry = zipEntries.find(e => {
+        const entryPath = e.entryName.replace(/\\/g, "/");
+        return entryPath === normalizedPath || 
+               entryPath === contentPath ||
+               entryPath.endsWith(normalizedPath) ||
+               normalizedPath.endsWith(entryPath);
+      });
+      
+      if (entry) {
+        try {
+          const content = entry.getData().toString("utf-8");
+          const text = extractTextFromXml(content);
+          
+          if (text && text.length > 20) {
+            textParts.push(text);
+          }
+        } catch (entryError) {
+          console.warn("[EPUB Extraction] Error reading entry:", contentPath, entryError);
+        }
+      }
+    }
+    
+    const text = textParts.join("\n\n");
+    const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+    
+    console.log(`[EPUB Extraction] Extracted ${wordCount} words from ${textParts.length} chapters`);
+    
+    // If still no text, try extracting from ALL xhtml/html files
+    if (wordCount === 0) {
+      console.log("[EPUB Extraction] No text found, trying all HTML files...");
+      
+      for (const entry of zipEntries) {
+        if (/\.(x?html?)$/i.test(entry.entryName)) {
+          try {
+            const content = entry.getData().toString("utf-8");
+            const entryText = extractTextFromXml(content);
+            
+            if (entryText && entryText.length > 50) {
+              textParts.push(entryText);
+              console.log("[EPUB Extraction] Found text in:", entry.entryName, "length:", entryText.length);
+            }
+          } catch (e) {
+            // Skip errors
+          }
+        }
+      }
+      
+      const finalText = textParts.join("\n\n");
+      const finalWordCount = finalText.split(/\s+/).filter((w: string) => w.length > 0).length;
+      
+      console.log(`[EPUB Extraction] Final extraction: ${finalWordCount} words`);
+      
+      return {
+        title,
+        author,
+        text: finalText,
+        wordCount: finalWordCount,
+        pageCount: contentFiles.length || textParts.length,
         fileType: "epub",
         coverImage: null,
         coverMimeType: null,
-      });
+      };
     }
-  });
+    
+    return {
+      title,
+      author,
+      text,
+      wordCount,
+      pageCount: contentFiles.length,
+      fileType: "epub",
+      coverImage: null,
+      coverMimeType: null,
+    };
+  } catch (error) {
+    console.error("[EPUB Extraction] Error:", error);
+    return {
+      title: "EPUB Document",
+      author: null,
+      text: "",
+      wordCount: 0,
+      pageCount: null,
+      fileType: "epub",
+      coverImage: null,
+      coverMimeType: null,
+    };
+  }
 }
 
 /**
