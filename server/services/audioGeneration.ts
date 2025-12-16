@@ -1,7 +1,11 @@
 import { storagePut } from "../storage";
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1";
+
+// Get API key dynamically to ensure it's available after server start
+function getElevenLabsApiKey(): string | undefined {
+  return process.env.ELEVENLABS_API_KEY;
+}
 
 // Premium voice IDs from ElevenLabs
 const VOICE_OPTIONS = {
@@ -35,7 +39,8 @@ export async function generateAudioNarration(
   voiceId: VoiceId = "rachel",
   insightId: number
 ): Promise<AudioGenerationResult> {
-  if (!ELEVENLABS_API_KEY) {
+  const apiKey = getElevenLabsApiKey();
+  if (!apiKey) {
     throw new Error("ElevenLabs API key not configured");
   }
 
@@ -50,7 +55,7 @@ export async function generateAudioNarration(
         headers: {
           "Accept": "audio/mpeg",
           "Content-Type": "application/json",
-          "xi-api-key": ELEVENLABS_API_KEY,
+          "xi-api-key": apiKey,
         },
         body: JSON.stringify({
           text: script,

@@ -286,6 +286,76 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Regenerate insights for an existing insight
+    regenerate: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const insight = await db.getInsightById(input.id);
+        if (!insight) {
+          throw new Error("Insight not found");
+        }
+
+        const book = await db.getBookById(insight.bookId);
+        if (!book) {
+          throw new Error("Book not found");
+        }
+
+        // Delete existing content blocks
+        await db.deleteContentBlocksByInsightId(input.id);
+
+        // Update insight status to regenerating
+        await db.updateInsight(input.id, {
+          status: "generating",
+          summary: "",
+          audioScript: "",
+          audioUrl: null,
+        });
+
+        try {
+          // Regenerate using Premium Pipeline
+          logGeneration('Starting insight regeneration', { insightId: input.id, bookTitle: book.title });
+          const premiumInsight = await generatePremiumInsight(
+            book.extractedText || "",
+            book.title || "Unknown Book",
+            book.author || "Unknown Author"
+          );
+
+          // Convert to legacy format and save
+          const legacyInsight = convertToLegacyFormat(premiumInsight);
+
+          // Update insight with new content
+          await db.updateInsight(input.id, {
+            title: premiumInsight.title,
+            summary: legacyInsight.summary,
+            keyThemes: JSON.stringify(premiumInsight.keyThemes),
+            audioScript: premiumInsight.audioScript,
+            status: "completed",
+          });
+
+          // Save new content blocks
+          for (let i = 0; i < legacyInsight.sections.length; i++) {
+            const section = legacyInsight.sections[i];
+            await db.createContentBlock({
+              insightId: input.id,
+              blockType: 'section',
+              title: section.title,
+              content: section.content,
+              orderIndex: i,
+              visualType: section.visualType,
+              visualData: section.chartData ? JSON.stringify(section.chartData) : null,
+              listItems: section.listItems ? JSON.stringify(section.listItems) : null,
+            });
+          }
+
+          logGeneration('Insight regeneration complete', { insightId: input.id, sections: legacyInsight.sections.length });
+          return { success: true, insightId: input.id };
+        } catch (error) {
+          logError('generation', 'Regeneration failed', { insightId: input.id, error: String(error) });
+          await db.updateInsight(input.id, { status: "failed" });
+          throw error;
+        }
+      }),
+
     // Get generation status for polling
     getStatus: publicProcedure
       .input(z.object({ id: z.number() }))

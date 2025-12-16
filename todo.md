@@ -302,3 +302,9 @@
 - [x] Fix "Objects are not valid as a React child" error
 - [x] Handle nested objects (label, subbranches) in visual data properly
 - [x] Fixed FlowDiagramVisual, MindMapVisual, HierarchyVisual, RadarChartVisual, TimelineVisual, ComparisonMatrixVisual
+
+
+## New Features - Audio, Word Count, Regenerate
+- [x] Test ElevenLabs audio generation button (fixed dynamic API key loading)
+- [x] Add word count display to insight page header (shows word count badge)
+- [x] Add regenerate insights option for users (Regenerate button with full pipeline)

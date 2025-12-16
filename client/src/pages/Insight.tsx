@@ -41,6 +41,8 @@ import {
   SkipForward,
   ChevronUp,
   List,
+  RefreshCw,
+  FileText,
 } from "lucide-react";
 
 export default function InsightPage() {
@@ -114,6 +116,26 @@ export default function InsightPage() {
       toast.error(`PDF export failed: ${error.message}`);
     },
   });
+
+  const regenerateMutation = trpc.insights.regenerate.useMutation({
+    onSuccess: () => {
+      toast.success("Insights regenerated successfully!");
+      window.location.reload();
+    },
+    onError: (error: { message: string }) => {
+      toast.error(`Regeneration failed: ${error.message}`);
+    },
+  });
+
+  // Calculate word count from content blocks
+  const wordCount = useMemo(() => {
+    if (!insight?.contentBlocks) return 0;
+    return insight.contentBlocks.reduce((total: number, block: any) => {
+      const content = block.content || block.text || '';
+      const words = typeof content === 'string' ? content.split(/\s+/).filter((w: string) => w.length > 0).length : 0;
+      return total + words;
+    }, 0);
+  }, [insight?.contentBlocks]);
 
   // Audio player controls
   useEffect(() => {
@@ -285,6 +307,28 @@ export default function InsightPage() {
                 <FileDown className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Export</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => regenerateMutation.mutate({ id: insightId })}
+                disabled={regenerateMutation.isPending}
+                className="touch-target text-xs md:text-sm"
+                title="Regenerate insights with a fresh perspective"
+              >
+                {regenerateMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 md:mr-2" />
+                )}
+                <span className="hidden md:inline">Regenerate</span>
+              </Button>
+              {/* Word Count Badge */}
+              {wordCount > 0 && (
+                <div className="hidden lg:flex items-center gap-1 px-2 py-1 bg-muted rounded-md text-xs text-muted-foreground">
+                  <FileText className="w-3 h-3" />
+                  <span>{wordCount.toLocaleString()} words</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
