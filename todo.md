@@ -308,3 +308,9 @@
 - [x] Test ElevenLabs audio generation button (fixed dynamic API key loading)
 - [x] Add word count display to insight page header (shows word count badge)
 - [x] Add regenerate insights option for users (Regenerate button with full pipeline)
+
+
+## Bug Fix - String Pattern Error on Published Site
+- [x] Fix "The string did not match the expected pattern" error during Generate Insights
+- [x] Fixed argument order bug in regenerate endpoint
+- [x] Improved JSON repair function with comprehensive handling for unterminated strings

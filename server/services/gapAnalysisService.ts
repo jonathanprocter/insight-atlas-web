@@ -210,24 +210,61 @@ export async function runGapAnalysis(
       jsonStr = jsonMatch[1].trim();
     }
 
-    // Try to repair common JSON issues
+    // Try to repair common JSON issues with comprehensive handling
     const repairJson = (str: string): string => {
-      // Remove trailing commas before } or ]
+      // Step 1: Remove trailing commas before } or ]
       str = str.replace(/,\s*([}\]])/g, '$1');
-      // Fix unterminated strings by finding the last complete object
-      if (str.includes('"') && !str.endsWith('}')) {
-        // Try to find the last complete JSON object
-        const lastBrace = str.lastIndexOf('}');
-        if (lastBrace > 0) {
-          str = str.substring(0, lastBrace + 1);
+      
+      // Step 2: Fix unterminated strings - find and close them
+      // Count quotes to see if we have an odd number (unterminated)
+      const quoteCount = (str.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) {
+        // Find the last quote and add a closing quote after it
+        const lastQuoteIdx = str.lastIndexOf('"');
+        if (lastQuoteIdx > 0) {
+          // Check if this is an opening quote (preceded by : or [)
+          const beforeQuote = str.substring(Math.max(0, lastQuoteIdx - 10), lastQuoteIdx);
+          if (beforeQuote.match(/[:\[,]\s*$/)) {
+            // This is an opening quote for a value, close it
+            str = str.substring(0, lastQuoteIdx + 1) + '"';
+          }
         }
       }
-      // Ensure proper closing
+      
+      // Step 3: Try to find the last complete JSON object/array
+      if (!str.trim().endsWith('}') && !str.trim().endsWith(']')) {
+        const lastBrace = str.lastIndexOf('}');
+        const lastBracket = str.lastIndexOf(']');
+        const lastComplete = Math.max(lastBrace, lastBracket);
+        if (lastComplete > 0) {
+          str = str.substring(0, lastComplete + 1);
+        }
+      }
+      
+      // Step 4: Balance braces
       const openBraces = (str.match(/{/g) || []).length;
       const closeBraces = (str.match(/}/g) || []).length;
       if (openBraces > closeBraces) {
         str += '}'.repeat(openBraces - closeBraces);
       }
+      
+      // Step 5: Balance brackets
+      const openBrackets = (str.match(/\[/g) || []).length;
+      const closeBrackets = (str.match(/\]/g) || []).length;
+      if (openBrackets > closeBrackets) {
+        // Insert closing brackets before the final }
+        const insertPos = str.lastIndexOf('}');
+        if (insertPos > 0) {
+          str = str.substring(0, insertPos) + ']'.repeat(openBrackets - closeBrackets) + str.substring(insertPos);
+        } else {
+          str += ']'.repeat(openBrackets - closeBrackets);
+        }
+      }
+      
+      // Step 6: Remove any trailing incomplete key-value pairs
+      str = str.replace(/,\s*"[^"]*"\s*:\s*$/g, '');
+      str = str.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/g, '');
+      
       return str;
     };
 

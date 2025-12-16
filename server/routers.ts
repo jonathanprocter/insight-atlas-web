@@ -315,9 +315,9 @@ export const appRouter = router({
           // Regenerate using Premium Pipeline
           logGeneration('Starting insight regeneration', { insightId: input.id, bookTitle: book.title });
           const premiumInsight = await generatePremiumInsight(
-            book.extractedText || "",
             book.title || "Unknown Book",
-            book.author || "Unknown Author"
+            book.author || "Unknown Author",
+            book.extractedText || ""
           );
 
           // Convert to legacy format and save
