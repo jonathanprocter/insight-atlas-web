@@ -8,21 +8,25 @@
 import { ElevenLabsClient } from 'elevenlabs';
 import { storagePut } from '../storage';
 
-// Initialize ElevenLabs client
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+// Get API key dynamically to handle late environment variable injection
+const getApiKey = (): string | undefined => {
+  return process.env.ELEVENLABS_API_KEY;
+};
 
 const getClient = (): ElevenLabsClient | null => {
-  if (!ELEVENLABS_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     console.warn('[ElevenLabs] API key not configured');
     return null;
   }
   return new ElevenLabsClient({
-    apiKey: ELEVENLABS_API_KEY,
+    apiKey,
   });
 };
 
 export const isElevenLabsConfigured = (): boolean => {
-  return !!ELEVENLABS_API_KEY && ELEVENLABS_API_KEY.length > 10;
+  const apiKey = getApiKey();
+  return !!apiKey && apiKey.length > 10;
 };
 
 // Available voices for narration

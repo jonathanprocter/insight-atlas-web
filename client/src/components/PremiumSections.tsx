@@ -238,9 +238,21 @@ export function VisualFramework({ visualType, visualData }: { visualType: string
   }
 }
 
-// Flow Diagram Visual
+// Flow Diagram Visual - handles both string[] and {id, label}[] formats
 function FlowDiagramVisual({ data }: { data: Record<string, unknown> }) {
-  const nodes = (data.nodes as string[]) || [];
+  const rawNodes = data.nodes || [];
+  
+  // Normalize nodes to handle both string[] and object[] formats
+  const getNodeLabel = (node: unknown): string => {
+    if (typeof node === 'string') return node;
+    if (typeof node === 'object' && node !== null) {
+      const obj = node as Record<string, unknown>;
+      return String(obj.label || obj.name || obj.title || obj.id || JSON.stringify(node));
+    }
+    return String(node);
+  };
+  
+  const nodes = Array.isArray(rawNodes) ? rawNodes : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -252,7 +264,7 @@ function FlowDiagramVisual({ data }: { data: Record<string, unknown> }) {
         {nodes.map((node, index) => (
           <React.Fragment key={index}>
             <div className="bg-blue-100 border-2 border-blue-300 rounded-lg px-4 py-2 text-blue-800 font-medium text-center min-w-[100px]">
-              {node}
+              {getNodeLabel(node)}
             </div>
             {index < nodes.length - 1 && (
               <ArrowRight className="w-5 h-5 text-blue-400 flex-shrink-0" />
@@ -264,10 +276,32 @@ function FlowDiagramVisual({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-// Comparison Matrix Visual
+// Comparison Matrix Visual - handles various row formats
 function ComparisonMatrixVisual({ data }: { data: Record<string, unknown> }) {
-  const headers = (data.headers as string[]) || [];
-  const rows = (data.rows as Array<{ label: string; values: string[] }>) || [];
+  const rawHeaders = data.headers || [];
+  const rawRows = data.rows || [];
+  
+  const getLabel = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'object' && item !== null) {
+      const obj = item as Record<string, unknown>;
+      return String(obj.label || obj.name || obj.title || obj.id || JSON.stringify(item));
+    }
+    return String(item);
+  };
+  
+  const headers = Array.isArray(rawHeaders) ? rawHeaders.map(getLabel) : [];
+  const rows = Array.isArray(rawRows) ? rawRows.map(row => {
+    if (typeof row === 'object' && row !== null) {
+      const obj = row as Record<string, unknown>;
+      const values = obj.values || obj.cells || [];
+      return {
+        label: getLabel(obj.label || obj.name || obj.title || ''),
+        values: Array.isArray(values) ? values.map(getLabel) : []
+      };
+    }
+    return { label: String(row), values: [] };
+  }) : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200 overflow-x-auto">
@@ -288,7 +322,7 @@ function ComparisonMatrixVisual({ data }: { data: Record<string, unknown> }) {
           {rows.map((row, i) => (
             <tr key={i} className="border-t border-gray-200">
               <td className="px-3 py-2 font-medium text-gray-800">{row.label}</td>
-              {row.values?.map((value, j) => (
+              {row.values.map((value, j) => (
                 <td key={j} className="px-3 py-2 text-gray-600">{value}</td>
               ))}
             </tr>
@@ -299,10 +333,33 @@ function ComparisonMatrixVisual({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-// Mind Map Visual
+// Mind Map Visual - handles both string[] and {label, subbranches}[] formats
 function MindMapVisual({ data }: { data: Record<string, unknown> }) {
   const center = (data.center as string) || 'Central Concept';
-  const branches = (data.branches as string[]) || [];
+  const rawBranches = data.branches || [];
+  
+  // Normalize branches to handle both string[] and object[] formats
+  const getBranchLabel = (branch: unknown): string => {
+    if (typeof branch === 'string') return branch;
+    if (typeof branch === 'object' && branch !== null) {
+      const obj = branch as Record<string, unknown>;
+      return String(obj.label || obj.name || obj.title || JSON.stringify(branch));
+    }
+    return String(branch);
+  };
+  
+  const getSubbranches = (branch: unknown): string[] => {
+    if (typeof branch === 'object' && branch !== null) {
+      const obj = branch as Record<string, unknown>;
+      const subs = obj.subbranches || obj.children || [];
+      if (Array.isArray(subs)) {
+        return subs.map(sub => getBranchLabel(sub));
+      }
+    }
+    return [];
+  };
+  
+  const branches = Array.isArray(rawBranches) ? rawBranches : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -315,20 +372,46 @@ function MindMapVisual({ data }: { data: Record<string, unknown> }) {
           {center}
         </div>
         <div className="flex flex-wrap justify-center gap-3">
-          {branches.map((branch, index) => (
-            <div key={index} className="bg-purple-100 border border-purple-300 rounded-lg px-4 py-2 text-purple-800">
-              {branch}
-            </div>
-          ))}
+          {branches.map((branch, index) => {
+            const label = getBranchLabel(branch);
+            const subbranches = getSubbranches(branch);
+            return (
+              <div key={index} className="flex flex-col items-center">
+                <div className="bg-purple-100 border border-purple-300 rounded-lg px-4 py-2 text-purple-800">
+                  {label}
+                </div>
+                {subbranches.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-1 mt-2">
+                    {subbranches.map((sub, subIndex) => (
+                      <div key={subIndex} className="bg-purple-50 border border-purple-200 rounded px-2 py-1 text-purple-700 text-xs">
+                        {sub}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-// Radar Chart Visual (simplified)
+// Radar Chart Visual (simplified) - handles both string[] and object[] formats
 function RadarChartVisual({ data }: { data: Record<string, unknown> }) {
-  const dimensions = (data.dimensions as string[]) || [];
+  const rawDimensions = data.dimensions || [];
+  
+  const getLabel = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'object' && item !== null) {
+      const obj = item as Record<string, unknown>;
+      return String(obj.label || obj.name || obj.dimension || obj.id || JSON.stringify(item));
+    }
+    return String(item);
+  };
+  
+  const dimensions = Array.isArray(rawDimensions) ? rawDimensions : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -339,7 +422,7 @@ function RadarChartVisual({ data }: { data: Record<string, unknown> }) {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {dimensions.map((dim, index) => (
           <div key={index} className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 text-center">
-            <p className="text-cyan-800 font-medium text-sm">{dim}</p>
+            <p className="text-cyan-800 font-medium text-sm">{getLabel(dim)}</p>
             <div className="mt-2 h-2 bg-cyan-200 rounded-full">
               <div className="h-full bg-cyan-500 rounded-full" style={{ width: '50%' }} />
             </div>
@@ -350,9 +433,24 @@ function RadarChartVisual({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-// Timeline Visual
+// Timeline Visual - handles various event formats
 function TimelineVisual({ data }: { data: Record<string, unknown> }) {
-  const events = (data.events as Array<{ date: string; title: string; description?: string }>) || [];
+  const rawEvents = data.events || [];
+  
+  const getEventData = (event: unknown): { date: string; title: string; description?: string } => {
+    if (typeof event === 'string') return { date: '', title: event };
+    if (typeof event === 'object' && event !== null) {
+      const obj = event as Record<string, unknown>;
+      return {
+        date: String(obj.date || obj.time || obj.period || ''),
+        title: String(obj.title || obj.label || obj.name || obj.event || ''),
+        description: obj.description ? String(obj.description) : undefined
+      };
+    }
+    return { date: '', title: String(event) };
+  };
+  
+  const events = Array.isArray(rawEvents) ? rawEvents.map(getEventData) : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -365,7 +463,7 @@ function TimelineVisual({ data }: { data: Record<string, unknown> }) {
           <div key={index} className="flex gap-3">
             <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0" />
             <div>
-              <p className="font-medium text-amber-800">{event.date}: {event.title}</p>
+              <p className="font-medium text-amber-800">{event.date ? `${event.date}: ` : ''}{event.title}</p>
               {event.description && <p className="text-gray-600 text-sm">{event.description}</p>}
             </div>
           </div>
@@ -375,10 +473,23 @@ function TimelineVisual({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-// Hierarchy Visual
+// Hierarchy Visual - handles both string[] and object[] formats
 function HierarchyVisual({ data }: { data: Record<string, unknown> }) {
-  const root = (data.root as string) || 'Root';
-  const children = (data.children as string[]) || [];
+  const rawRoot = data.root;
+  const rawChildren = data.children || [];
+  
+  // Normalize to handle both string and object formats
+  const getLabel = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'object' && item !== null) {
+      const obj = item as Record<string, unknown>;
+      return String(obj.label || obj.name || obj.title || obj.id || JSON.stringify(item));
+    }
+    return String(item);
+  };
+  
+  const root = getLabel(rawRoot) || 'Root';
+  const children = Array.isArray(rawChildren) ? rawChildren : [];
   
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200">
@@ -394,7 +505,7 @@ function HierarchyVisual({ data }: { data: Record<string, unknown> }) {
         <div className="flex flex-wrap justify-center gap-2">
           {children.map((child, index) => (
             <div key={index} className="bg-indigo-100 border border-indigo-300 rounded-lg px-3 py-1.5 text-indigo-800 text-sm">
-              {child}
+              {getLabel(child)}
             </div>
           ))}
         </div>
