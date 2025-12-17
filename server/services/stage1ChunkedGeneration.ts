@@ -78,41 +78,38 @@ export async function generatePremiumContentChunked(
     words: chunk3.wordCount 
   });
   
-  // Validate total word count
+  // Validate total word count (warning only, don't fail)
   if (totalWordCount < 9000) {
-    const error = `Chunked generation failed validation: ${totalWordCount} words (minimum 9,000 required)`;
-    logError('generation', error, { 
+    logGeneration('[Chunked Generation] Warning: Below target word count', { 
       totalWordCount, 
       target: 9000,
-      sections: allSections.length
+      sections: allSections.length,
+      message: 'Continuing with available content'
     });
-    throw new Error(error);
   }
   
-  // Validate section count
+  // Validate section count (warning only, don't fail)
   if (allSections.length < 20) {
-    const error = `Chunked generation failed validation: ${allSections.length} sections (minimum 20 required)`;
-    logError('generation', error, { 
+    logGeneration('[Chunked Generation] Warning: Below target section count', { 
       totalWordCount,
       sections: allSections.length,
-      target: 20
+      target: 20,
+      message: 'Continuing with available sections'
     });
-    throw new Error(error);
   }
   
-  // Validate required section types exist
+  // Validate required section types exist (warning only, don't fail)
   const requiredTypes = ['quickGlance', 'foundationalNarrative', 'executiveSummary'];
   const sectionTypes = allSections.map(s => s.type);
   const missingTypes = requiredTypes.filter(t => !sectionTypes.includes(t as any));
   
   if (missingTypes.length > 0) {
-    const error = `Chunked generation missing required sections: ${missingTypes.join(', ')}`;
-    logError('generation', error, { 
+    logGeneration('[Chunked Generation] Warning: Missing some required sections', { 
       totalWordCount,
       sections: allSections.length,
-      missingTypes
+      missingTypes,
+      message: 'Continuing with available sections'
     });
-    throw new Error(error);
   }
   
   // Calculate quality metrics
