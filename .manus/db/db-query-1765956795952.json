@@ -1,0 +1,70 @@
+{
+  "query": "SELECT id, bookId, status, audioUrl FROM insights ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, status, audioUrl FROM insights ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "690001",
+      "bookId": "720001",
+      "status": "generating",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "660001",
+      "bookId": "690001",
+      "status": "generating",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "630001",
+      "bookId": "660001",
+      "status": "completed",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "600001",
+      "bookId": "630001",
+      "status": "completed",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "570001",
+      "bookId": "600001",
+      "status": "generating",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "540002",
+      "bookId": "570002",
+      "status": "generating",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "540001",
+      "bookId": "570001",
+      "status": "generating",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "510002",
+      "bookId": "540001",
+      "status": "completed",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "510001",
+      "bookId": "540001",
+      "status": "completed",
+      "audioUrl": "NULL"
+    },
+    {
+      "id": "480001",
+      "bookId": "510001",
+      "status": "generating",
+      "audioUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\tstatus\taudioUrl\n690001\t720001\tgenerating\tNULL\n660001\t690001\tgenerating\tNULL\n630001\t660001\tcompleted\tNULL\n600001\t630001\tcompleted\tNULL\n570001\t600001\tgenerating\tNULL\n540002\t570002\tgenerating\tNULL\n540001\t570001\tgenerating\tNULL\n510002\t540001\tcompleted\tNULL\n510001\t540001\tcompleted\tNULL\n480001\t510001\tgenerating\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 50
+}

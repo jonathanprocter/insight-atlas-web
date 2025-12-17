@@ -334,3 +334,14 @@
 - [x] Identified root cause: tRPC may use response strings in URL construction
 - [x] Fix: Added encodeURIComponent validation and 500-char limit to all strings
 - [ ] User to verify fix works with active generation in production
+
+## Precise Targeted Audit for URL Error
+- [x] Analyze error stack trace from user screenshots
+- [x] Create audit that tests exact tRPC URL construction pattern
+- [x] Test with malformed data that would trigger URL errors
+- [x] All audits pass - error not reproducible in Node.js
+- [x] Found two `new URL()` calls: const.ts (login) and Insight.tsx (audio validation)
+- [x] Error must be in browser-specific code or dependency (tRPC/React Query/superjson)
+- [x] Add defensive error handling to prevent error from breaking UI
+- [x] Added try-catch to getLoginUrl URL construction
+- [x] Added robust error handling to Book.tsx mutation error handler

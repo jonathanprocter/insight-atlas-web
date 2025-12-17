@@ -41,11 +41,28 @@ export default function BookPage() {
       setGeneratingInsightId(data.insightId);
     },
     onError: (error) => {
-      console.error('[Book] Generate error:', error);
-      console.error('[Book] Error data:', JSON.stringify(error.data));
-      console.error('[Book] Error shape:', error.shape);
-      toast.error(`Generation failed: ${error.message}`);
-      setGeneratingInsightId(null);
+      try {
+        console.error('[Book] Generate error:', error);
+        
+        // Safely stringify error data
+        try {
+          const errorData = error.data ? JSON.stringify(error.data) : 'undefined';
+          console.error('[Book] Error data:', errorData);
+        } catch (stringifyError) {
+          console.error('[Book] Error data: (could not stringify)', error.data);
+        }
+        
+        console.error('[Book] Error shape:', error.shape || 'undefined');
+        
+        // Safe error message extraction
+        const errorMessage = error?.message || 'Unknown error occurred';
+        toast.error(`Generation failed: ${errorMessage}`);
+      } catch (handlerError) {
+        console.error('[Book] Error in error handler:', handlerError);
+        toast.error('Generation failed');
+      } finally {
+        setGeneratingInsightId(null);
+      }
     },
   });
 
