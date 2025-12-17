@@ -285,14 +285,16 @@ export async function generatePremiumContent(
   try {
     // Use Anthropic Claude as primary for premium content generation
     // Enable truncation for very large books to prevent timeout
+    // Increased from 16k to 64k tokens to handle large books like "Scarcity Brain" (94k words)
     const response = await generateWithClaude(
       STAGE_1_SYSTEM_PROMPT,
       prompt,
-      16000,
+      64000,  // Increased token limit for comprehensive insights
       { truncateInput: true }
     );
 
     console.log('[Stage 1] Content generated using:', response.provider);
+    console.log('[Stage 1] Response length:', response.content.length, 'characters');
 
     // Parse JSON from response
     let jsonStr = response.content;
@@ -301,9 +303,22 @@ export async function generatePremiumContent(
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1];
+      console.log('[Stage 1] Extracted JSON from markdown code block');
     }
 
-    const guideData = JSON.parse(jsonStr);
+    console.log('[Stage 1] JSON string length:', jsonStr.length, 'characters');
+    console.log('[Stage 1] JSON preview (first 200 chars):', jsonStr.substring(0, 200));
+    console.log('[Stage 1] JSON preview (last 200 chars):', jsonStr.substring(jsonStr.length - 200));
+
+    let guideData;
+    try {
+      guideData = JSON.parse(jsonStr);
+      console.log('[Stage 1] JSON parsed successfully');
+    } catch (parseError) {
+      console.error('[Stage 1] JSON parse failed:', parseError instanceof Error ? parseError.message : String(parseError));
+      console.error('[Stage 1] Failed JSON string:', jsonStr);
+      throw new Error(`Failed to parse Stage 1 JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response may have been truncated due to token limit.`);
+    }
 
     // Build the premium guide
     const guide: PremiumGuide = {

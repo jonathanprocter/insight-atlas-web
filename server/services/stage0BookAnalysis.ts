@@ -182,7 +182,8 @@ export async function analyzeBook(
 
   try {
     // Use Anthropic Claude as primary for book analysis
-    const response = await generateWithClaude(system, user, 8000);
+    // Increased from 8k to 16k tokens for comprehensive book analysis
+    const response = await generateWithClaude(system, user, 16000);
     console.log('[Stage 0] Analysis completed using:', response.provider);
 
     // Parse the JSON response

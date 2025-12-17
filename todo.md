@@ -416,3 +416,10 @@
 - [x] Generate audit report
 
 **Audit Score: 100% ✅**
+
+## Critical Bug - Pattern Validation Error
+- [x] Investigate "string did not match expected pattern" error (caused by token limit truncation)
+- [x] Check Anthropic token limits (were too low: 8k/16k)
+- [x] Add detailed error logging to identify which pattern is failing
+- [x] Increase max_tokens for Anthropic API calls (Stage 0: 8k→16k, Stage 1: 16k→64k)
+- [ ] Test with "Scarcity Brain" book (94,876 words) - ready for testing
