@@ -314,3 +314,4 @@
 - [x] Fix "The string did not match the expected pattern" error during Generate Insights
 - [x] Fixed argument order bug in regenerate endpoint
 - [x] Improved JSON repair function with comprehensive handling for unterminated strings
+- [ ] Still occurring - need to identify exact source of URL pattern error in browser

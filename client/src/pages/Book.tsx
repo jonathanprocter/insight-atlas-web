@@ -37,9 +37,13 @@ export default function BookPage() {
 
   const generateMutation = trpc.insights.generate.useMutation({
     onSuccess: (data) => {
+      console.log('[Book] Generate success:', data);
       setGeneratingInsightId(data.insightId);
     },
     onError: (error) => {
+      console.error('[Book] Generate error:', error);
+      console.error('[Book] Error data:', JSON.stringify(error.data));
+      console.error('[Book] Error shape:', error.shape);
       toast.error(`Generation failed: ${error.message}`);
       setGeneratingInsightId(null);
     },

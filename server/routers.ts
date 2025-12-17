@@ -242,6 +242,16 @@ export const appRouter = router({
             keyThemesCount: result.keyThemes.length
           });
 
+          // Test superjson serialization before returning
+          try {
+            const testSerialized = JSON.stringify(result);
+            logGeneration('JSON stringify test passed', { length: testSerialized.length });
+          } catch (serError) {
+            logError('generation', 'JSON stringify failed', { 
+              error: serError instanceof Error ? serError.message : String(serError)
+            });
+          }
+
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);

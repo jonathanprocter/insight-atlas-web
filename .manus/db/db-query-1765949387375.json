@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, title, author, wordCount, pageCount FROM books ORDER BY id DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, title, author, wordCount, pageCount FROM books ORDER BY id DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "570001",
+      "title": "What's Your Story?",
+      "author": "Rebecca Walker",
+      "wordCount": "5462",
+      "pageCount": "224"
+    },
+    {
+      "id": "540001",
+      "title": "What's Your Story?",
+      "author": "Rebecca Walker",
+      "wordCount": "5462",
+      "pageCount": "224"
+    },
+    {
+      "id": "510001",
+      "title": "Awareness Games: Playing with Your Mind to Create Joy",
+      "author": "O'Connor, Brian Tom",
+      "wordCount": "15634",
+      "pageCount": "68"
+    },
+    {
+      "id": "480001",
+      "title": "Taming the Molecule of More",
+      "author": "Michael E. Long",
+      "wordCount": "82188",
+      "pageCount": "40"
+    },
+    {
+      "id": "450001",
+      "title": "Just a Thought",
+      "author": "NULL",
+      "wordCount": "43363",
+      "pageCount": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tauthor\twordCount\tpageCount\n570001\tWhat's Your Story?\tRebecca Walker\t5462\t224\n540001\tWhat's Your Story?\tRebecca Walker\t5462\t224\n510001\tAwareness Games: Playing with Your Mind to Create Joy\tO'Connor, Brian Tom\t15634\t68\n480001\tTaming the Molecule of More\tMichael E. Long\t82188\t40\n450001\tJust a Thought\tNULL\t43363\t2\n",
+  "stderr": "",
+  "execution_time_ms": 92
+}

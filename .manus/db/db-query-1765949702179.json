@@ -1,0 +1,80 @@
+{
+  "query": "SELECT id, bookId, title, status, createdAt FROM insights ORDER BY id DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, title, status, createdAt FROM insights ORDER BY id DESC LIMIT 10",
+  "rows": [
+    {
+      "id": "540001",
+      "bookId": "570001",
+      "title": "Insights: What's Your Story?",
+      "status": "generating",
+      "createdAt": "2025-12-17 05:32:40"
+    },
+    {
+      "id": "510002",
+      "bookId": "540001",
+      "title": "What's Your Story?: The Complete Guide to Rewriting Your Life Through Sacred Self-Inquiry",
+      "status": "completed",
+      "createdAt": "2025-12-17 05:20:43"
+    },
+    {
+      "id": "510001",
+      "bookId": "540001",
+      "title": "What's Your Story? A Complete Guide to Rewriting Your Life Through Sacred Self-Inquiry",
+      "status": "completed",
+      "createdAt": "2025-12-17 05:18:00"
+    },
+    {
+      "id": "480001",
+      "bookId": "510001",
+      "title": "Insights: Awareness Games: Playing with Your Mind to Create Joy",
+      "status": "generating",
+      "createdAt": "2025-12-16 13:49:37"
+    },
+    {
+      "id": "450001",
+      "bookId": "480001",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "createdAt": "2025-12-16 13:40:47"
+    },
+    {
+      "id": "420001",
+      "bookId": "450001",
+      "title": "Insights: Just a Thought",
+      "status": "generating",
+      "createdAt": "2025-12-16 13:21:44"
+    },
+    {
+      "id": "390001",
+      "bookId": "420001",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "createdAt": "2025-12-16 09:18:28"
+    },
+    {
+      "id": "360001",
+      "bookId": "390001",
+      "title": "The Architecture of Awareness: 19 Ways to Understand Consciousness, Movement, and the Stories We Tell",
+      "status": "completed",
+      "createdAt": "2025-12-16 07:12:18"
+    },
+    {
+      "id": "330002",
+      "bookId": "360002",
+      "title": "Insights: Just a Thought",
+      "status": "generating",
+      "createdAt": "2025-12-16 07:08:26"
+    },
+    {
+      "id": "330001",
+      "bookId": "360001",
+      "title": "Awareness Games: Your Playbook for Discovering Joy Within",
+      "status": "completed",
+      "createdAt": "2025-12-16 06:57:28"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\ttitle\tstatus\tcreatedAt\n540001\t570001\tInsights: What's Your Story?\tgenerating\t2025-12-17 05:32:40\n510002\t540001\tWhat's Your Story?: The Complete Guide to Rewriting Your Life Through Sacred Self-Inquiry\tcompleted\t2025-12-17 05:20:43\n510001\t540001\tWhat's Your Story? A Complete Guide to Rewriting Your Life Through Sacred Self-Inquiry\tcompleted\t2025-12-17 05:18:00\n480001\t510001\tInsights: Awareness Games: Playing with Your Mind to Create Joy\tgenerating\t2025-12-16 13:49:37\n450001\t480001\tInsights: Taming the Molecule of More\tgenerating\t2025-12-16 13:40:47\n420001\t450001\tInsights: Just a Thought\tgenerating\t2025-12-16 13:21:44\n390001\t420001\tInsights: Taming the Molecule of More\tgenerating\t2025-12-16 09:18:28\n360001\t390001\tThe Architecture of Awareness: 19 Ways to Understand Consciousness, Movement, and the Stories We Tell\tcompleted\t2025-12-16 07:12:18\n330002\t360002\tInsights: Just a Thought\tgenerating\t2025-12-16 07:08:26\n330001\t360001\tAwareness Games: Your Playbook for Discovering Joy Within\tcompleted\t2025-12-16 06:57:28\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}
