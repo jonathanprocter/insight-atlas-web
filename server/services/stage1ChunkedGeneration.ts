@@ -80,16 +80,58 @@ export async function generatePremiumContentChunked(
   
   // Validate total word count
   if (totalWordCount < 9000) {
-    logError('generation', 'Chunked generation did not meet 9k word minimum', { 
+    const error = `Chunked generation failed validation: ${totalWordCount} words (minimum 9,000 required)`;
+    logError('generation', error, { 
       totalWordCount, 
-      target: 9000 
+      target: 9000,
+      sections: allSections.length
     });
+    throw new Error(error);
   }
   
-  logGeneration('[Chunked Generation] Complete', { 
+  // Validate section count
+  if (allSections.length < 20) {
+    const error = `Chunked generation failed validation: ${allSections.length} sections (minimum 20 required)`;
+    logError('generation', error, { 
+      totalWordCount,
+      sections: allSections.length,
+      target: 20
+    });
+    throw new Error(error);
+  }
+  
+  // Validate required section types exist
+  const requiredTypes = ['quickGlance', 'foundationalNarrative', 'executiveSummary'];
+  const sectionTypes = allSections.map(s => s.type);
+  const missingTypes = requiredTypes.filter(t => !sectionTypes.includes(t as any));
+  
+  if (missingTypes.length > 0) {
+    const error = `Chunked generation missing required sections: ${missingTypes.join(', ')}`;
+    logError('generation', error, { 
+      totalWordCount,
+      sections: allSections.length,
+      missingTypes
+    });
+    throw new Error(error);
+  }
+  
+  // Calculate quality metrics
+  const avgWordsPerSection = Math.round(totalWordCount / allSections.length);
+  const sectionTypeDistribution = sectionTypes.reduce((acc, type) => {
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const visualSections = allSections.filter(s => s.visualType).length;
+  const visualCoverage = Math.round((visualSections / allSections.length) * 100);
+  
+  logGeneration('[Chunked Generation] Complete - Quality Validated', { 
     totalSections: allSections.length, 
     totalWords: totalWordCount,
-    target: '9,000-12,000'
+    target: '9,000-12,000',
+    avgWordsPerSection,
+    visualCoverage: `${visualCoverage}%`,
+    sectionTypeDistribution
   });
   
   return {
@@ -104,6 +146,10 @@ export async function generatePremiumContentChunked(
 }
 
 async function generateChunk(config: ChunkConfig): Promise<{ sections: PremiumSection[]; wordCount: number }> {
+  logGeneration(`[Chunk: ${config.name}] Starting generation`, { 
+    targetWords: config.targetWords,
+    sectionTypes: config.sectionTypes 
+  });
   const systemPrompt = `You are an Insight Atlas synthesizer generating premium book guide content. 
 Output ONLY valid JSON with this structure:
 {
@@ -144,6 +190,33 @@ Use rich markdown formatting, practical examples, and actionable insights.`;
       const words = (s.content || '').split(/\s+/).length;
       return sum + words;
     }, 0);
+    
+    // Validate chunk meets minimum target (allow 20% under for flexibility)
+    const minWords = Math.floor(config.targetWords * 0.8);
+    if (wordCount < minWords) {
+      logError('generation', `Chunk ${config.name} below target`, {
+        wordCount,
+        target: config.targetWords,
+        minimum: minWords
+      });
+    }
+    
+    // Validate section types match config
+    const actualTypes = sections.map(s => s.type);
+    const hasExpectedTypes = config.sectionTypes.some(t => actualTypes.includes(t as any));
+    if (!hasExpectedTypes) {
+      logError('generation', `Chunk ${config.name} missing expected section types`, {
+        expected: config.sectionTypes,
+        actual: actualTypes
+      });
+    }
+    
+    logGeneration(`[Chunk: ${config.name}] Complete`, { 
+      sections: sections.length,
+      wordCount,
+      target: config.targetWords,
+      coverage: `${Math.round((wordCount / config.targetWords) * 100)}%`
+    });
     
     return { sections, wordCount };
   } catch (error) {

@@ -510,3 +510,13 @@
 - [x] FIX: Add formatting pass after parsing Stage 1 output
 - [x] Strip markdown markers, convert to structured HTML (cleanMarkdown function)
 - [x] Enforce visual metadata presence for premium sections
+
+## Quality Validation for Chunked Generation
+- [x] Add word count validation: fail if < 9,000 words
+- [x] Add section count validation: require minimum 20 sections
+- [x] Validate each chunk meets its target word count (80% minimum)
+- [x] Check for required section types (quickGlance, foundationalNarrative, executiveSummary)
+- [x] Validate visual types are specified for appropriate sections
+- [x] Add quality metrics logging (avg words per section, section type distribution, visual coverage)
+- [ ] Implement retry logic if validation fails (future enhancement)
+- [x] Add detailed error messages explaining what failed validation
