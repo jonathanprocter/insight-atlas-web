@@ -144,29 +144,29 @@ export const appRouter = router({
     generate: publicProcedure
       .input(z.object({ bookId: z.number() }))
       .mutation(async ({ ctx, input }) => {
-        logGeneration('Starting insight generation', { bookId: input.bookId });
-        
-        const userId = getUserId(ctx);
-        const book = await db.getBookById(input.bookId);
-        if (!book) {
-          logError('generation', 'Book not found', { bookId: input.bookId });
-          throw new Error("Book not found");
-        }
-        
-        logGeneration('Book loaded', { title: book.title, author: book.author, textLength: book.extractedText?.length });
-
-        // Create insight record with pending status
-        const insightId = await db.createInsight({
-          userId,
-          bookId: input.bookId,
-          title: `Insights: ${book.title}`,
-          summary: "",
-          status: "generating",
-          keyThemes: JSON.stringify([]),
-          audioScript: "",
-        });
-
+        let insightId: number | null = null;
         try {
+          logGeneration('Starting insight generation', { bookId: input.bookId });
+          
+          const userId = getUserId(ctx);
+          const book = await db.getBookById(input.bookId);
+          if (!book) {
+            logError('generation', 'Book not found', { bookId: input.bookId });
+            throw new Error("Book not found");
+          }
+          
+          logGeneration('Book loaded', { title: book.title, author: book.author, textLength: book.extractedText?.length });
+
+          // Create insight record with pending status
+          insightId = await db.createInsight({
+            userId,
+            bookId: input.bookId,
+            title: `Insights: ${book.title}`,
+            summary: "",
+            status: "generating",
+            keyThemes: JSON.stringify([]),
+            audioScript: "",
+          });
           // Generate insights using Premium Pipeline (Stage 0 + Stage 1)
           logGeneration('Starting Premium Pipeline', { bookTitle: book.title, insightId });
           const premiumInsight = await generatePremiumInsight(
@@ -217,23 +217,49 @@ export const appRouter = router({
             });
           }
 
-          return {
+          // Sanitize all string data to prevent browser API errors
+          const sanitizeString = (str: string | null | undefined): string => {
+            if (!str) return '';
+            return String(str)
+              .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+              .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
+              .trim();
+          };
+
+          const result = {
             insightId,
-            title: premiumInsight.title,
-            summary: premiumInsight.summary,
-            keyThemes: premiumInsight.keyThemes,
+            title: sanitizeString(premiumInsight.title),
+            summary: sanitizeString(premiumInsight.summary),
+            keyThemes: premiumInsight.keyThemes.map(t => sanitizeString(t)),
             sectionCount: premiumInsight.sections.length,
             wordCount: premiumInsight.wordCount,
           };
+
+          logGeneration('Returning sanitized result', { 
+            insightId: result.insightId,
+            titleLength: result.title.length,
+            summaryLength: result.summary.length,
+            keyThemesCount: result.keyThemes.length
+          });
+
+          return result;
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          // Sanitize error message to prevent browser URL parsing issues
+          const sanitizedMessage = errorMessage
+            .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+            .substring(0, 500); // Limit length
+          
           logError('generation', 'Insight generation failed', { 
             insightId, 
             bookId: input.bookId,
-            error: error instanceof Error ? error.message : String(error),
+            error: sanitizedMessage,
             stack: error instanceof Error ? error.stack : undefined
           });
-          await db.updateInsight(insightId, { status: "failed" });
-          throw error;
+          if (insightId) {
+            await db.updateInsight(insightId, { status: "failed" });
+          }
+          throw new Error(`Insight generation failed: ${sanitizedMessage}`);
         }
       }),
 
@@ -362,15 +388,25 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const insight = await db.getInsightById(input.id);
         if (!insight) {
-          return { status: "not_found", progress: 0 };
+          return { status: "not_found" as const, progress: 0 };
         }
         const contentBlocks = await db.getContentBlocksByInsightId(input.id);
+        
+        // Sanitize strings to prevent browser API errors
+        const sanitizeString = (str: string | null | undefined): string => {
+          if (!str) return '';
+          return String(str)
+            .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+            .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
+            .trim();
+        };
+        
         return {
           status: insight.status,
           progress: insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95),
           sectionCount: contentBlocks.length,
-          title: insight.title,
-          summary: insight.summary,
+          title: sanitizeString(insight.title),
+          summary: sanitizeString(insight.summary),
         };
       }),
 
