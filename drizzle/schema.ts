@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, longtext, timestamp, varchar, boolean, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, longtext, timestamp, varchar, boolean, json, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -23,7 +23,7 @@ export type InsertUser = typeof users.$inferInsert;
  */
 export const books = mysqlTable("books", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: 'cascade' }),
   title: varchar("title", { length: 500 }).notNull(),
   author: varchar("author", { length: 255 }),
   fileUrl: text("fileUrl"),
@@ -35,7 +35,9 @@ export const books = mysqlTable("books", {
   pageCount: int("pageCount"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index("books_userId_idx").on(table.userId),
+}));
 
 export type Book = typeof books.$inferSelect;
 export type InsertBook = typeof books.$inferInsert;
@@ -45,8 +47,8 @@ export type InsertBook = typeof books.$inferInsert;
  */
 export const insights = mysqlTable("insights", {
   id: int("id").autoincrement().primaryKey(),
-  bookId: int("bookId").notNull(),
-  userId: int("userId").notNull(),
+  bookId: int("bookId").notNull().references(() => books.id, { onDelete: 'cascade' }),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: 'cascade' }),
   title: varchar("title", { length: 500 }).notNull(),
   summary: text("summary"),
   keyThemes: text("keyThemes"), // JSON array of theme strings
@@ -62,7 +64,10 @@ export const insights = mysqlTable("insights", {
   generationProgress: int("generationProgress").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  bookIdIdx: index("insights_bookId_idx").on(table.bookId),
+  userIdIdx: index("insights_userId_idx").on(table.userId),
+}));
 
 export type Insight = typeof insights.$inferSelect;
 export type InsertInsight = typeof insights.$inferInsert;
@@ -72,15 +77,18 @@ export type InsertInsight = typeof insights.$inferInsert;
  */
 export const libraryItems = mysqlTable("library_items", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  bookId: int("bookId").notNull(),
-  insightId: int("insightId"),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bookId: int("bookId").notNull().references(() => books.id, { onDelete: 'cascade' }),
+  insightId: int("insightId").references(() => insights.id, { onDelete: 'set null' }),
   isFavorite: boolean("isFavorite").default(false).notNull(),
   readingStatus: mysqlEnum("readingStatus", ["new", "reading", "completed"]).default("new").notNull(),
   lastAccessedAt: timestamp("lastAccessedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  userIdIdx: index("libraryItems_userId_idx").on(table.userId),
+  bookIdIdx: index("libraryItems_bookId_idx").on(table.bookId),
+}));
 
 export type LibraryItem = typeof libraryItems.$inferSelect;
 export type InsertLibraryItem = typeof libraryItems.$inferInsert;
