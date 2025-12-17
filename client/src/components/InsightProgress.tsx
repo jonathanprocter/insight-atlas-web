@@ -33,24 +33,36 @@ export function InsightProgress({ insightId, onComplete }: InsightProgressProps)
   const [sections, setSections] = useState<Array<{ type: string; content?: string }>>([]);
   const [progress, setProgress] = useState(5);
   const [statusMessage, setStatusMessage] = useState("Starting analysis with Claude...");
+  const [errorCount, setErrorCount] = useState(0);
+  const [shouldPoll, setShouldPoll] = useState(true);
 
-  // Poll for status updates
+  // Poll for status updates - stop after 3 consecutive errors
   const { data: status, error: statusError } = trpc.insights.getStatus.useQuery(
     { id: insightId },
     {
       refetchInterval: 1000, // Poll every second
-      enabled: !!insightId,
+      enabled: !!insightId && shouldPoll && errorCount < 3,
       retry: false, // Don't retry failed queries
       refetchOnWindowFocus: false,
     }
   );
   
-  // Log errors without throwing
+  // Track errors and stop polling after 3 consecutive failures
   useEffect(() => {
     if (statusError) {
       console.log('[InsightProgress] Status query error (non-critical):', statusError.message);
+      setErrorCount(prev => prev + 1);
+      
+      if (errorCount >= 2) {
+        console.warn('[InsightProgress] Too many errors, stopping polling');
+        setShouldPoll(false);
+        setStatusMessage("Connection issue detected. Please refresh the page.");
+      }
+    } else if (status) {
+      // Reset error count on successful query
+      setErrorCount(0);
     }
-  }, [statusError]);
+  }, [statusError, status, errorCount]);
 
   useEffect(() => {
     if (status) {
@@ -60,9 +72,11 @@ export function InsightProgress({ insightId, onComplete }: InsightProgressProps)
       
       if (status.status === "completed") {
         setStatusMessage("Analysis complete!");
+        setShouldPoll(false); // Stop polling when complete
         setTimeout(onComplete, 500);
       } else if (status.status === "failed") {
         setStatusMessage("Generation failed. Please try again.");
+        setShouldPoll(false); // Stop polling on failure
       } else if (status.sectionCount && status.sectionCount > 0) {
         setStatusMessage(`Generating section ${status.sectionCount}...`);
       }
