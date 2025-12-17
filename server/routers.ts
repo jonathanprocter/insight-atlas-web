@@ -171,10 +171,24 @@ export const appRouter = router({
           });
           // Generate insights using Premium Pipeline (Stage 0 + Stage 1)
           logGeneration('Starting Premium Pipeline', { bookTitle: book.title, insightId });
+          
+          // Progress callback to update database during generation
+          const updateProgress = async (stage: string, progress: number) => {
+            if (!insightId) return;
+            await db.updateInsight(insightId, {
+              currentStage: stage,
+              generationProgress: progress,
+              status: stage === 'completed' ? 'completed' : 'generating'
+            });
+            logGeneration('Progress update', { insightId, stage, progress });
+          };
+          
           const premiumInsight = await generatePremiumInsight(
             book.title,
             book.author,
-            book.extractedText || ""
+            book.extractedText || "",
+            insightId,
+            updateProgress
           );
           logGeneration('Premium Pipeline complete', { 
             sections: premiumInsight.sections.length, 
@@ -413,9 +427,15 @@ export const appRouter = router({
             }
           };
           
+          // Use database progress if available, otherwise calculate from content blocks
+          const progress = insight.generationProgress !== null && insight.generationProgress !== undefined
+            ? insight.generationProgress
+            : (insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95));
+          
           const result = {
             status: insight.status || "pending",
-            progress: insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95),
+            currentStage: insight.currentStage || "pending",
+            progress,
             sectionCount: contentBlocks.length || 0,
             title: sanitizeString(insight.title),
             summary: sanitizeString(insight.summary),

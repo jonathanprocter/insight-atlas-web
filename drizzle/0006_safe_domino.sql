@@ -1,0 +1,1 @@
+ALTER TABLE `insights` ADD `currentStage` varchar(50);

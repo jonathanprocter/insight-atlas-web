@@ -475,3 +475,12 @@
 - [x] Check if database is saving partial results (Insight 870001 saved successfully!)
 - [x] ROOT CAUSE: tRPC serialization error on complex return object
 - [x] FIX: Simplified return to just {insightId}, frontend polls for full data
+
+## Real-Time Progress Bar Implementation
+- [x] Add progress tracking to premiumInsightPipeline.ts (update insight status field)
+- [x] Track stages: "analyzing" (Stage 0), "generating" (Stage 1), "finalizing" (Gap analysis)
+- [x] Update getStatus endpoint to return current stage and progress percentage
+- [x] Enhance InsightProgress component with visual progress bar
+- [x] Show stage names: "Analyzing book structure..." → "Generating insights..." → "Finalizing..."
+- [x] Display accurate progress: 0-30% (Stage 0), 30-90% (Stage 1), 90-100% (Finalizing)
+- [ ] Test with book generation to verify smooth progress updates

@@ -60,6 +60,7 @@ export const insights = mysqlTable("insights", {
   pdfKey: varchar("pdfKey", { length: 255 }),
   recommendedVisuals: text("recommendedVisuals"), // JSON array of visual types
   status: mysqlEnum("status", ["pending", "generating", "completed", "failed"]).default("pending").notNull(),
+  currentStage: varchar("currentStage", { length: 50 }), // Current generation stage: "analyzing", "generating", "finalizing"
   wordCount: int("wordCount").default(0),
   generationProgress: int("generationProgress").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

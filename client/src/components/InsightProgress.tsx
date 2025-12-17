@@ -70,6 +70,18 @@ export function InsightProgress({ insightId, onComplete }: InsightProgressProps)
       const progressValue = typeof status.progress === 'number' ? status.progress : 5;
       setProgress(progressValue);
       
+      // Update status message based on current stage
+      const stage = (status as any).currentStage || 'pending';
+      if (stage === 'analyzing') {
+        setStatusMessage('Analyzing book structure and key concepts...');
+      } else if (stage === 'generating') {
+        setStatusMessage('Generating comprehensive insights...');
+      } else if (stage === 'finalizing') {
+        setStatusMessage('Finalizing content and creating audio script...');
+      } else if (stage === 'completed') {
+        setStatusMessage('Analysis complete!');
+      }
+      
       if (status.status === "completed") {
         setStatusMessage("Analysis complete!");
         setShouldPoll(false); // Stop polling when complete

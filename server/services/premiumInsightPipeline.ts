@@ -48,10 +48,15 @@ export interface GeneratedInsight {
 export async function generatePremiumInsight(
   bookTitle: string,
   bookAuthor: string | null,
-  bookText: string
+  bookText: string,
+  insightId?: number,
+  updateProgress?: (stage: string, progress: number) => Promise<void>
 ): Promise<GeneratedInsight> {
   logGeneration('=== PREMIUM PIPELINE START ===', { bookTitle, bookAuthor, textLength: bookText.length });
   logGeneration('Starting Stage 0: Book Analysis...');
+  
+  // Update progress: Starting analysis (0%)
+  await updateProgress?.('analyzing', 0);
   
   // Stage 0: Analyze the book
   const analysis = await timedOperation('generation', 'Stage 0: Book Analysis', async () => {
@@ -62,6 +67,9 @@ export async function generatePremiumInsight(
     coreConcepts: analysis.coreConcepts.length,
     themes: analysis.coreConcepts.map(c => c.conceptName)
   });
+  
+  // Update progress: Analysis complete (30%)
+  await updateProgress?.('generating', 30);
 
   logGeneration('Starting Stage 1: Premium Content Generation...');
   
@@ -75,6 +83,9 @@ export async function generatePremiumInsight(
     wordCount: guide.wordCount,
     sectionTypes: guide.sections.map(s => s.type)
   });
+  
+  // Update progress: Content generation complete (90%)
+  await updateProgress?.('finalizing', 90);
 
   // Gap Analysis: Check all 9 dimensions and fill missing content
   logGeneration('Starting Gap Analysis & Content Completion...');
@@ -231,6 +242,9 @@ export async function generatePremiumInsight(
     completenessScore,
     hasAudio: !!audioUrl
   });
+  
+  // Update progress: Pipeline complete (100%)
+  await updateProgress?.('completed', 100);
 
   return {
     title: guide.title,
