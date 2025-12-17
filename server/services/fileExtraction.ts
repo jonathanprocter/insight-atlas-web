@@ -68,11 +68,51 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
     
     const text = textParts.join("\n\n");
     
-    // Fallback title from first line
-    if (title === "Untitled PDF" && text) {
-      const firstLine = text.split("\n").find((line: string) => line.trim().length > 0);
-      if (firstLine && firstLine.length < 200) {
-        title = firstLine.trim();
+    // Fallback: Use LLM to extract title and author from first page
+    if ((title === "Untitled PDF" || !author) && text) {
+      try {
+        const { invokeLLM } = await import('../_core/llm');
+        const firstPage = text.substring(0, 3000); // First ~3000 chars usually contain title/author
+        
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: 'system',
+              content: 'Extract the book title and author from the provided text. Return ONLY a JSON object with "title" and "author" fields. If author is not found, use null.'
+            },
+            {
+              role: 'user',
+              content: `Extract title and author from this book text:\n\n${firstPage}`
+            }
+          ],
+          maxTokens: 200
+        });
+        
+        const content = response.choices[0]?.message?.content;
+        if (content && typeof content === 'string') {
+          // Remove markdown code blocks if present
+          let jsonStr = content;
+          const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[1];
+          }
+          
+          const extracted = JSON.parse(jsonStr.trim());
+          if (extracted.title && extracted.title !== "Untitled PDF") {
+            title = extracted.title;
+          }
+          if (extracted.author && !author) {
+            author = extracted.author;
+          }
+          console.log('[PDF Extraction] LLM extracted metadata:', { title, author });
+        }
+      } catch (llmError) {
+        console.warn('[PDF Extraction] LLM metadata extraction failed:', llmError);
+        // Fallback to first line
+        const firstLine = text.split("\n").find((line: string) => line.trim().length > 0);
+        if (firstLine && firstLine.length < 200) {
+          title = firstLine.trim();
+        }
       }
     }
     
@@ -92,6 +132,10 @@ export async function extractFromPDF(buffer: Buffer): Promise<ExtractedContent> 
     };
   } catch (error) {
     console.error("[PDF Extraction] Error:", error);
+    console.error("[PDF Extraction] Error details:", error instanceof Error ? error.message : String(error));
+    console.error("[PDF Extraction] Stack:", error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Return minimal data instead of empty - at least try to get filename
     return {
       title: "PDF Document",
       author: null,

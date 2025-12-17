@@ -81,14 +81,49 @@ export async function extractEpubCover(buffer: Buffer): Promise<{ coverBuffer: B
 
 /**
  * Extract cover image from PDF file (first page)
- * Note: This function is currently disabled due to sharp/pdf-poppler Linux compatibility issues.
- * Cover extraction for PDFs will be skipped gracefully.
+ * Uses pdfjs-dist and canvas to render the first page as an image
  */
 export async function extractPdfCover(buffer: Buffer): Promise<{ coverBuffer: Buffer; mimeType: string } | null> {
-  // Skip PDF cover extraction due to sharp/pdf-poppler Linux compatibility issues
-  // This prevents the "linux is NOT supported" error from blocking insight generation
-  console.log("[Cover Extraction] PDF cover extraction skipped (not supported on this platform)");
-  return null;
+  try {
+    console.log("[Cover Extraction] Starting PDF cover extraction...");
+    
+    // Import pdfjs and canvas
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const { createCanvas } = await import("canvas");
+    
+    // Load PDF
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+    });
+    
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1); // Get first page
+    
+    // Set up canvas with appropriate dimensions
+    const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better quality
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext('2d');
+    
+    // Render PDF page to canvas
+    await page.render({
+      canvasContext: context as any,
+      viewport: viewport,
+      canvas: canvas as any,
+    }).promise;
+    
+    // Convert canvas to buffer
+    const coverBuffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
+    
+    console.log("[Cover Extraction] PDF cover extracted successfully");
+    return {
+      coverBuffer,
+      mimeType: "image/jpeg"
+    };
+  } catch (error) {
+    console.error("[Cover Extraction] PDF cover extraction failed:", error);
+    return null;
+  }
 }
 
 /**

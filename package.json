@@ -51,6 +51,7 @@
     "@types/multer": "^2.0.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.12.0",
+    "canvas": "^3.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -123,6 +124,7 @@
       "tailwindcss>nanoid": "3.3.7"
     },
     "onlyBuiltDependencies": [
+      "canvas",
       "sharp"
     ]
   }

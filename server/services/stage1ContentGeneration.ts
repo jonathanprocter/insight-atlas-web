@@ -338,8 +338,21 @@ export async function generatePremiumContent(
         console.log('[Stage 1] JSON parsed successfully after OpenAI repair');
       } catch (repairError) {
         console.error('[Stage 1] OpenAI repair also failed:', repairError instanceof Error ? repairError.message : String(repairError));
-        console.error('[Stage 1] Original JSON:', jsonStr.substring(0, 1000));
-        throw new Error(`Failed to parse Stage 1 JSON even after OpenAI repair: ${repairError instanceof Error ? repairError.message : 'Unknown error'}`);
+        console.error('[Stage 1] Original JSON (first 500 chars):', jsonStr.substring(0, 500));
+        console.error('[Stage 1] Original JSON (last 500 chars):', jsonStr.substring(Math.max(0, jsonStr.length - 500)));
+        console.error('[Stage 1] JSON length:', jsonStr.length);
+        
+        // Try to identify the specific issue
+        const parseErrorMsg = repairError instanceof Error ? repairError.message : String(repairError);
+        if (parseErrorMsg.includes('Unexpected token')) {
+          const match = parseErrorMsg.match(/position (\d+)/);
+          if (match) {
+            const pos = parseInt(match[1]);
+            console.error('[Stage 1] Error context:', jsonStr.substring(Math.max(0, pos - 100), Math.min(jsonStr.length, pos + 100)));
+          }
+        }
+        
+        throw new Error(`Failed to parse Stage 1 JSON even after OpenAI repair: ${parseErrorMsg}. This may indicate the LLM response was truncated or malformed.`);
       }
     }
 

@@ -1,0 +1,37 @@
+{
+  "query": "SELECT id, title, author, wordCount, pageCount, fileType, coverUrl FROM books ORDER BY createdAt DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, title, author, wordCount, pageCount, fileType, coverUrl FROM books ORDER BY createdAt DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "870001",
+      "title": "PDF Document",
+      "author": "NULL",
+      "wordCount": "0",
+      "pageCount": "NULL",
+      "fileType": "pdf",
+      "coverUrl": "NULL"
+    },
+    {
+      "id": "840001",
+      "title": "Persuasion Skills  BLACK   BOOK",
+      "author": "NULL",
+      "wordCount": "42777",
+      "pageCount": "186",
+      "fileType": "pdf",
+      "coverUrl": "NULL"
+    },
+    {
+      "id": "810002",
+      "title": "Scarcity Brain: Fix Your Craving Mindset and Rewire Your Habits to Thrive with Enough",
+      "author": "Michael Easter",
+      "wordCount": "94876",
+      "pageCount": "201",
+      "fileType": "pdf",
+      "coverUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tauthor\twordCount\tpageCount\tfileType\tcoverUrl\n870001\tPDF Document\tNULL\t0\tNULL\tpdf\tNULL\n840001\tPersuasion Skills  BLACK   BOOK\tNULL\t42777\t186\tpdf\tNULL\n810002\tScarcity Brain: Fix Your Craving Mindset and Rewire Your Habits to Thrive with Enough\tMichael Easter\t94876\t201\tpdf\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 74
+}

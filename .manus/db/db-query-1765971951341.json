@@ -1,0 +1,34 @@
+{
+  "query": "SELECT id, bookId, title, status, createdAt, updatedAt FROM insights ORDER BY updatedAt DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, title, status, createdAt, updatedAt FROM insights ORDER BY updatedAt DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "810001",
+      "bookId": "870002",
+      "title": "Insights: Scarcity Brain: Fix Your Craving Mindset and Rewire Your Habits to Thrive with Enough",
+      "status": "generating",
+      "createdAt": "2025-12-17 11:36:45",
+      "updatedAt": "2025-12-17 11:36:45"
+    },
+    {
+      "id": "780001",
+      "bookId": "840001",
+      "title": "The Persuasion Architecture: Mastering Conversational Influence Through NLP Language Patterns",
+      "status": "completed",
+      "createdAt": "2025-12-17 11:11:11",
+      "updatedAt": "2025-12-17 11:31:54"
+    },
+    {
+      "id": "750001",
+      "bookId": "810002",
+      "title": "Scarcity Brain: The Insight Atlas Guide to Rewiring Your Mindset for 'Enough'",
+      "status": "completed",
+      "createdAt": "2025-12-17 09:38:09",
+      "updatedAt": "2025-12-17 09:56:22"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\ttitle\tstatus\tcreatedAt\tupdatedAt\n810001\t870002\tInsights: Scarcity Brain: Fix Your Craving Mindset and Rewire Your Habits to Thrive with Enough\tgenerating\t2025-12-17 11:36:45\t2025-12-17 11:36:45\n780001\t840001\tThe Persuasion Architecture: Mastering Conversational Influence Through NLP Language Patterns\tcompleted\t2025-12-17 11:11:11\t2025-12-17 11:31:54\n750001\t810002\tScarcity Brain: The Insight Atlas Guide to Rewiring Your Mindset for 'Enough'\tcompleted\t2025-12-17 09:38:09\t2025-12-17 09:56:22\n",
+  "stderr": "",
+  "execution_time_ms": 775
+}

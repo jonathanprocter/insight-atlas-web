@@ -432,4 +432,12 @@
 - [x] Add JSON validation and repair layer with OpenAI
 - [x] Increased Anthropic timeout to 15 minutes
 - [x] OpenAI fallback uses 16k tokens minimum
+- [ ] Debug current generation failure
+- [ ] Check server logs for latest error
 - [ ] Test insight generation end-to-end
+
+## Bug - Book Metadata Not Extracting
+- [x] Fix title extraction from uploaded books (added LLM fallback extraction)
+- [x] Fix author extraction from uploaded books (added LLM fallback extraction)
+- [x] Fix cover image extraction from uploaded books (implemented PDF first-page rendering with canvas)
+- [ ] Test metadata extraction with PDF/EPUB files
