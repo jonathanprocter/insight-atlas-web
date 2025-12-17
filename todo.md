@@ -316,3 +316,12 @@
 - [x] Improved JSON repair function with comprehensive handling for unterminated strings
 - [x] Identified error source: Vite build/HMR issue in development environment (chunk-GIAR3RVC.js)
 - [x] Clear Vite cache and rebuild dependencies to fix development build errors
+
+## Bug Fix - URL Pattern Error During Generation Polling
+- [x] Error occurs DURING generation (not on button click)
+- [x] Investigate getStatus endpoint polling for URL construction issues
+- [x] Added string sanitization to getStatus endpoint
+- [x] Added defensive null checks to InsightProgress component
+- [x] Created audit script to test polling mechanism
+- [x] Audit passed: 10/10 polls successful on static insight
+- [ ] Test with active generation to verify fix works during real-time updates

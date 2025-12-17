@@ -396,28 +396,50 @@ export const appRouter = router({
     getStatus: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
-        const insight = await db.getInsightById(input.id);
-        if (!insight) {
-          return { status: "not_found" as const, progress: 0 };
+        try {
+          console.log('[getStatus] Polling for insight:', input.id);
+          
+          const insight = await db.getInsightById(input.id);
+          if (!insight) {
+            console.log('[getStatus] Insight not found:', input.id);
+            return { status: "not_found" as const, progress: 0, sectionCount: 0, title: "", summary: "" };
+          }
+          
+          const contentBlocks = await db.getContentBlocksByInsightId(input.id);
+          
+          // Sanitize strings to prevent browser API errors
+          const sanitizeString = (str: string | null | undefined): string => {
+            if (!str) return '';
+            return String(str)
+              .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+              .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
+              .replace(/[\r\n\t]/g, ' ') // Replace newlines/tabs with spaces
+              .trim()
+              .substring(0, 1000); // Limit length
+          };
+          
+          const result = {
+            status: insight.status || "pending",
+            progress: insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95),
+            sectionCount: contentBlocks.length || 0,
+            title: sanitizeString(insight.title),
+            summary: sanitizeString(insight.summary),
+          };
+          
+          console.log('[getStatus] Returning status:', {
+            id: input.id,
+            status: result.status,
+            progress: result.progress,
+            sectionCount: result.sectionCount,
+            titleLength: result.title.length,
+            summaryLength: result.summary.length
+          });
+          
+          return result;
+        } catch (error) {
+          console.error('[getStatus] Error:', error);
+          return { status: "failed" as const, progress: 0, sectionCount: 0, title: "", summary: "" };
         }
-        const contentBlocks = await db.getContentBlocksByInsightId(input.id);
-        
-        // Sanitize strings to prevent browser API errors
-        const sanitizeString = (str: string | null | undefined): string => {
-          if (!str) return '';
-          return String(str)
-            .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-            .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
-            .trim();
-        };
-        
-        return {
-          status: insight.status,
-          progress: insight.status === "completed" ? 100 : Math.min(20 + contentBlocks.length * 7, 95),
-          sectionCount: contentBlocks.length,
-          title: sanitizeString(insight.title),
-          summary: sanitizeString(insight.summary),
-        };
       }),
 
     // Check if Claude streaming is available

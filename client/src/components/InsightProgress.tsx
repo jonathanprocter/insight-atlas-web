@@ -35,17 +35,28 @@ export function InsightProgress({ insightId, onComplete }: InsightProgressProps)
   const [statusMessage, setStatusMessage] = useState("Starting analysis with Claude...");
 
   // Poll for status updates
-  const { data: status } = trpc.insights.getStatus.useQuery(
+  const { data: status, error: statusError } = trpc.insights.getStatus.useQuery(
     { id: insightId },
     {
       refetchInterval: 1000, // Poll every second
       enabled: !!insightId,
+      retry: false, // Don't retry failed queries
+      refetchOnWindowFocus: false,
     }
   );
+  
+  // Log errors without throwing
+  useEffect(() => {
+    if (statusError) {
+      console.log('[InsightProgress] Status query error (non-critical):', statusError.message);
+    }
+  }, [statusError]);
 
   useEffect(() => {
     if (status) {
-      setProgress(status.progress);
+      // Safely access progress with fallback
+      const progressValue = typeof status.progress === 'number' ? status.progress : 5;
+      setProgress(progressValue);
       
       if (status.status === "completed") {
         setStatusMessage("Analysis complete!");
@@ -90,12 +101,12 @@ export function InsightProgress({ insightId, onComplete }: InsightProgressProps)
         </div>
 
         {/* Title and Summary Preview */}
-        {status?.title && status.title !== `Insights: ` && (
+        {status?.title && typeof status.title === 'string' && status.title.trim() && status.title !== `Insights: ` && (
           <div className="mb-4 p-4 bg-background/50 rounded-lg border border-border">
             <h4 className="font-serif text-lg font-semibold text-foreground mb-2">
               {status.title}
             </h4>
-            {status.summary && (
+            {status.summary && typeof status.summary === 'string' && status.summary.trim() && (
               <p className="text-sm text-muted-foreground line-clamp-3">
                 {status.summary}
               </p>
