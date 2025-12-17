@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, uploadProcedure, insightProcedure, audioProcedure, exportProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { safeJsonParse } from "./db";
@@ -260,13 +261,23 @@ export const appRouter = router({
           // The frontend will poll for the full data via getStatus
           logGeneration('Returning insightId', { insightId });
           
-          return { insightId };
+          // Validate insightId is a valid number
+          if (!insightId || typeof insightId !== 'number' || insightId <= 0) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Invalid insight ID generated'
+            });
+          }
+          
+          return { insightId: Number(insightId) };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          // Sanitize error message to prevent browser URL parsing issues
+          // Aggressive sanitization to prevent tRPC URL encoding issues
           const sanitizedMessage = errorMessage
-            .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-            .substring(0, 500); // Limit length
+            .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
+            .replace(/[^\x20-\x7E]/g, '') // Keep only printable ASCII
+            .replace(/["'`]/g, '') // Remove quotes
+            .substring(0, 200); // Shorter limit
           
           logError('generation', 'Insight generation failed', { 
             insightId, 
@@ -277,7 +288,11 @@ export const appRouter = router({
           if (insightId) {
             await db.updateInsight(insightId, { status: "failed" });
           }
-          throw new Error(`Insight generation failed: ${sanitizedMessage}`);
+          // Use TRPCError with clean message to avoid URL encoding issues
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Generation failed. Please try again.'
+          });
         }
       }),
 

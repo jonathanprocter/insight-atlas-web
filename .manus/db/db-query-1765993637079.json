@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, title, status, currentStage, generationProgress, summary, createdAt FROM insights WHERE title LIKE '%Taming the Molecule%' ORDER BY createdAt DESC LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, title, status, currentStage, generationProgress, summary, createdAt FROM insights WHERE title LIKE '%Taming the Molecule%' ORDER BY createdAt DESC LIMIT 1",
+  "rows": [
+    {
+      "id": "990001",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "currentStage": "generating",
+      "generationProgress": "30",
+      "summary": "",
+      "createdAt": "2025-12-17 17:43:51"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tstatus\tcurrentStage\tgenerationProgress\tsummary\tcreatedAt\n990001\tInsights: Taming the Molecule of More\tgenerating\tgenerating\t30\t\t2025-12-17 17:43:51\n",
+  "stderr": "",
+  "execution_time_ms": 67
+}

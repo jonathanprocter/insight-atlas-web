@@ -549,3 +549,11 @@
 - [x] Identify root cause: overly strict validation throwing errors during generation
 - [x] Fix the issue: changed validation from hard errors to warnings
 - [x] Test insight generation end-to-end (Stage 0 completes successfully)
+
+## Bug Fix - tRPC URL Pattern Error (Current)
+- [x] Investigate "The string did not match the expected pattern" error in tRPC mutation
+- [x] This is different from validation error - happens in tRPC serialization layer
+- [x] Replaced generic Error with TRPCError for proper serialization
+- [x] Added insightId validation before return
+- [x] Added aggressive error message sanitization
+- [ ] Test with real book generation

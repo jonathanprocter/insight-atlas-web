@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, title, status, currentStage, generationProgress, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, title, status, currentStage, generationProgress, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "990001",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "currentStage": "generating",
+      "generationProgress": "30",
+      "createdAt": "2025-12-17 17:43:51"
+    },
+    {
+      "id": "960001",
+      "title": "Insights: The ACT Matrix",
+      "status": "failed",
+      "currentStage": "generating",
+      "generationProgress": "30",
+      "createdAt": "2025-12-17 17:11:17"
+    },
+    {
+      "id": "930001",
+      "title": "Insights: The ACT Matrix",
+      "status": "failed",
+      "currentStage": "generating",
+      "generationProgress": "30",
+      "createdAt": "2025-12-17 16:57:14"
+    },
+    {
+      "id": "900001",
+      "title": "Strong Ground: An Insight Atlas Guide to Embodied Leadership and Paradoxical Thinking",
+      "status": "completed",
+      "currentStage": "completed",
+      "generationProgress": "100",
+      "createdAt": "2025-12-17 14:02:57"
+    },
+    {
+      "id": "870001",
+      "title": "Taming the Molecule of More: Your Complete Guide to Making Dopamine Work for You",
+      "status": "completed",
+      "currentStage": "NULL",
+      "generationProgress": "0",
+      "createdAt": "2025-12-17 13:32:27"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tstatus\tcurrentStage\tgenerationProgress\tcreatedAt\n990001\tInsights: Taming the Molecule of More\tgenerating\tgenerating\t30\t2025-12-17 17:43:51\n960001\tInsights: The ACT Matrix\tfailed\tgenerating\t30\t2025-12-17 17:11:17\n930001\tInsights: The ACT Matrix\tfailed\tgenerating\t30\t2025-12-17 16:57:14\n900001\tStrong Ground: An Insight Atlas Guide to Embodied Leadership and Paradoxical Thinking\tcompleted\tcompleted\t100\t2025-12-17 14:02:57\n870001\tTaming the Molecule of More: Your Complete Guide to Making Dopamine Work for You\tcompleted\tNULL\t0\t2025-12-17 13:32:27\n",
+  "stderr": "",
+  "execution_time_ms": 111
+}
