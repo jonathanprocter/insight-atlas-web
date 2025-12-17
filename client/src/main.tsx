@@ -59,8 +59,21 @@ const trpcClient = trpc.createClient({
       transformer: superjson,
       async fetch(input, init) {
         try {
-          console.log('[tRPC] Fetch input:', typeof input === 'string' ? input.substring(0, 200) : input);
-          console.log('[tRPC] Fetch init body:', init?.body ? String(init.body).substring(0, 500) : 'none');
+          // Validate URL before fetch
+          const urlString = typeof input === 'string' ? input : (input instanceof Request ? input.url : String(input));
+          console.log('[tRPC] Fetch URL (first 200 chars):', urlString.substring(0, 200));
+          console.log('[tRPC] Fetch body:', init?.body ? String(init.body).substring(0, 500) : 'none');
+          
+          // Try to construct URL to catch "string did not match expected pattern" errors
+          try {
+            new URL(urlString, window.location.origin);
+          } catch (urlError) {
+            console.error('[tRPC] ❌ URL CONSTRUCTION FAILED - THIS IS THE ERROR!');
+            console.error('[tRPC] URL that failed:', urlString);
+            console.error('[tRPC] URL error:', urlError);
+            console.error('[tRPC] URL error message:', urlError instanceof Error ? urlError.message : String(urlError));
+            throw new Error(`Invalid URL: ${urlError instanceof Error ? urlError.message : String(urlError)}`);
+          }
           
           const response = await globalThis.fetch(input, {
             ...(init ?? {}),
