@@ -29,7 +29,7 @@ const getAnthropicClient = (): Anthropic | null => {
   if (!anthropicClient) {
     anthropicClient = new Anthropic({
       apiKey: ANTHROPIC_API_KEY,
-      timeout: 10 * 60 * 1000, // 10 minutes timeout for large books
+      timeout: 15 * 60 * 1000, // 15 minutes timeout for large books (increased from 10min)
     });
   }
   return anthropicClient;
@@ -178,6 +178,53 @@ export async function generateWithClaude(
 }
 
 /**
+ * Validate and repair JSON using OpenAI GPT-4
+ * Takes potentially malformed JSON from Claude and ensures it's valid
+ */
+export async function validateAndRepairJSON(
+  rawContent: string,
+  expectedStructure: string
+): Promise<string> {
+  logLLM('Validating JSON with OpenAI GPT-4');
+
+  const systemPrompt = `You are a JSON validation and repair expert. Your job is to:
+1. Check if the provided JSON is valid
+2. If invalid, repair it to match the expected structure
+3. Return ONLY the valid JSON, no explanations
+
+Expected structure:
+${expectedStructure}`;
+
+  const userPrompt = `Validate and repair this JSON if needed:
+
+${rawContent}`;
+
+  const messages: Message[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ];
+
+  const response = await invokeLLM({
+    messages,
+    maxTokens: 16000,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content || typeof content !== 'string') {
+    throw new Error('No content in validation response');
+  }
+
+  // Remove markdown code blocks if present
+  let cleanedContent = content;
+  const jsonMatch = cleanedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    cleanedContent = jsonMatch[1];
+  }
+
+  return cleanedContent.trim();
+}
+
+/**
  * Generate content using the built-in LLM (OpenAI/Gemini)
  * Used for: Formatting, Audio Scripts, Fallback
  */
@@ -186,10 +233,15 @@ export async function generateWithBuiltinLLM(
   userPrompt: string,
   maxTokens: number = 16000
 ): Promise<LLMResponse> {
-  logLLM('Using built-in LLM (OpenAI/Gemini)', { 
+  // Use maximum token output for comprehensive insights
+  // GPT-4 supports up to 16k output tokens
+  const effectiveMaxTokens = Math.max(maxTokens, 16000);
+  
+  logLLM('Using built-in LLM (OpenAI GPT-4) as fallback', { 
     systemPromptLength: systemPrompt.length, 
     userPromptLength: userPrompt.length,
-    maxTokens 
+    requestedMaxTokens: maxTokens,
+    effectiveMaxTokens
   });
   
   const messages: Message[] = [
@@ -199,7 +251,7 @@ export async function generateWithBuiltinLLM(
 
   const response = await invokeLLM({
     messages,
-    maxTokens,
+    maxTokens: effectiveMaxTokens,
   });
 
   const content = response.choices[0]?.message?.content;

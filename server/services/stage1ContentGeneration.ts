@@ -313,11 +313,34 @@ export async function generatePremiumContent(
     let guideData;
     try {
       guideData = JSON.parse(jsonStr);
-      console.log('[Stage 1] JSON parsed successfully');
+      console.log('[Stage 1] JSON parsed successfully on first attempt');
     } catch (parseError) {
-      console.error('[Stage 1] JSON parse failed:', parseError instanceof Error ? parseError.message : String(parseError));
-      console.error('[Stage 1] Failed JSON string:', jsonStr);
-      throw new Error(`Failed to parse Stage 1 JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response may have been truncated due to token limit.`);
+      console.error('[Stage 1] JSON parse failed, attempting OpenAI validation/repair:', parseError instanceof Error ? parseError.message : String(parseError));
+      
+      // Use OpenAI to validate and repair the JSON
+      try {
+        const { validateAndRepairJSON } = await import('./dualLLMService');
+        const expectedStructure = `{
+  "title": "string",
+  "summary": "string",
+  "tableOfContents": [{"title": "string", "type": "visual type"}],
+  "sections": [{"type": "section type", "title": "string", "content": "string", "visualType": "string", "visualData": {}, "metadata": {}}],
+  "keyThemes": ["string"],
+  "audioScript": "string",
+  "wordCount": number
+}`;
+        
+        console.log('[Stage 1] Sending to OpenAI for validation...');
+        const repairedJSON = await validateAndRepairJSON(jsonStr, expectedStructure);
+        console.log('[Stage 1] OpenAI repaired JSON, attempting parse...');
+        
+        guideData = JSON.parse(repairedJSON);
+        console.log('[Stage 1] JSON parsed successfully after OpenAI repair');
+      } catch (repairError) {
+        console.error('[Stage 1] OpenAI repair also failed:', repairError instanceof Error ? repairError.message : String(repairError));
+        console.error('[Stage 1] Original JSON:', jsonStr.substring(0, 1000));
+        throw new Error(`Failed to parse Stage 1 JSON even after OpenAI repair: ${repairError instanceof Error ? repairError.message : 'Unknown error'}`);
+      }
     }
 
     // Build the premium guide

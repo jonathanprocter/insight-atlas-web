@@ -423,3 +423,13 @@
 - [x] Add detailed error logging to identify which pattern is failing
 - [x] Increase max_tokens for Anthropic API calls (Stage 0: 8k→16k, Stage 1: 16k→64k)
 - [ ] Test with "Scarcity Brain" book (94,876 words) - ready for testing
+
+## Critical Bug - Insights Still Not Generating
+- [x] Check server logs for actual error messages (Anthropic timeout)
+- [x] Check database for failed insight records
+- [x] Identify why generation is failing despite token limit fix (Anthropic timeouts on large books)
+- [x] Implement tandem LLM approach: Claude generates, OpenAI validates/formats
+- [x] Add JSON validation and repair layer with OpenAI
+- [x] Increased Anthropic timeout to 15 minutes
+- [x] OpenAI fallback uses 16k tokens minimum
+- [ ] Test insight generation end-to-end

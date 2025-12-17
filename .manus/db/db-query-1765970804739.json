@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, bookId, title, status, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, title, status, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "780001",
+      "bookId": "840001",
+      "title": "Insights: Persuasion Skills  BLACK   BOOK",
+      "status": "generating",
+      "createdAt": "2025-12-17 11:11:11"
+    },
+    {
+      "id": "750001",
+      "bookId": "810002",
+      "title": "Scarcity Brain: The Insight Atlas Guide to Rewiring Your Mindset for 'Enough'",
+      "status": "completed",
+      "createdAt": "2025-12-17 09:38:09"
+    },
+    {
+      "id": "720003",
+      "bookId": "780003",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "createdAt": "2025-12-17 09:09:46"
+    },
+    {
+      "id": "720002",
+      "bookId": "780003",
+      "title": "Insights: Taming the Molecule of More",
+      "status": "generating",
+      "createdAt": "2025-12-17 09:06:34"
+    },
+    {
+      "id": "720001",
+      "bookId": "780002",
+      "title": "The Emotional Anchor: A Master Guide to Distress Tolerance and DBT Skills",
+      "status": "completed",
+      "createdAt": "2025-12-17 09:03:26"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\ttitle\tstatus\tcreatedAt\n780001\t840001\tInsights: Persuasion Skills  BLACK   BOOK\tgenerating\t2025-12-17 11:11:11\n750001\t810002\tScarcity Brain: The Insight Atlas Guide to Rewiring Your Mindset for 'Enough'\tcompleted\t2025-12-17 09:38:09\n720003\t780003\tInsights: Taming the Molecule of More\tgenerating\t2025-12-17 09:09:46\n720002\t780003\tInsights: Taming the Molecule of More\tgenerating\t2025-12-17 09:06:34\n720001\t780002\tThe Emotional Anchor: A Master Guide to Distress Tolerance and DBT Skills\tcompleted\t2025-12-17 09:03:26\n",
+  "stderr": "",
+  "execution_time_ms": 391
+}
