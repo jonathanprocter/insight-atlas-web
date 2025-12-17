@@ -12,6 +12,7 @@
 
 import { analyzeBook, BookAnalysis } from './stage0BookAnalysis';
 import { generatePremiumContent, PremiumGuide, PremiumSection } from './stage1ContentGeneration';
+import { generatePremiumContentChunked } from './stage1ChunkedGeneration';
 import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
 import { generateAudioNarration, isElevenLabsConfigured, AudioGenerationResult } from './elevenLabsService';
@@ -71,11 +72,11 @@ export async function generatePremiumInsight(
   // Update progress: Analysis complete (30%)
   await updateProgress?.('generating', 30);
 
-  logGeneration('Starting Stage 1: Premium Content Generation...');
+  logGeneration('Starting Stage 1: Premium Content Generation (Chunked)...');
   
-  // Stage 1: Generate premium content
-  const guide = await timedOperation('generation', 'Stage 1: Premium Content', async () => {
-    return generatePremiumContent(analysis, bookText);
+  // Stage 1: Generate premium content in chunks to meet 9-12k word requirement
+  const guide = await timedOperation('generation', 'Stage 1: Premium Content (Chunked)', async () => {
+    return generatePremiumContentChunked(analysis, bookText);
   }, { bookTitle });
   
   logGeneration('Stage 1 complete', { 

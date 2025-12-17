@@ -484,3 +484,29 @@
 - [x] Show stage names: "Analyzing book structure..." → "Generating insights..." → "Finalizing..."
 - [x] Display accurate progress: 0-30% (Stage 0), 30-90% (Stage 1), 90-100% (Finalizing)
 - [ ] Test with book generation to verify smooth progress updates
+
+## CRITICAL: Stage 1 Content Generation Issues
+### Issue #1 - Token Budget Too Small (BLOCKING QUALITY)
+- [x] Stage 1 promises 9,000-12,000 words (20-30 sections) but Anthropic max is 8,192 tokens
+- [x] 8k tokens ≈ 6,000 words maximum, cannot meet requirement
+- [x] Implement chunked generation: generate sections in batches (3 chunks: Foundation, Core, Application)
+- [x] Add explicit length validation before persisting results
+- [x] Created stage1ChunkedGeneration.ts service
+
+### Issue #2 - Premium Section Type Export Mismatch
+- [x] Premium sections stored with native types (quickGlance, actionBox, etc.)
+- [x] Export layer expects legacy types (heading, paragraph)
+- [x] PDF generator only builds TOC from "heading" sections
+- [x] Unrecognized types fall back to plain paragraph, losing structure
+- [x] FIX: Add section type normalization before export
+- [x] Map quickGlance → heading+paragraph, actionBox → list, etc.
+- [x] Created sectionNormalizer.ts service
+- [x] Integrated into routers.ts content block storage
+
+### Issue #3 - Markdown Artifacts in Output
+- [x] Stage 1 parser strips code fences but passes through raw markdown
+- [x] Bold markers (**text**), bullet syntax, etc. bleed into stored blocks
+- [x] No normalization to HTML/RTF-friendly text before saving
+- [x] FIX: Add formatting pass after parsing Stage 1 output
+- [x] Strip markdown markers, convert to structured HTML (cleanMarkdown function)
+- [x] Enforce visual metadata presence for premium sections

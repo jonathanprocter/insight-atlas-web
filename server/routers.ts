@@ -11,6 +11,7 @@ import { generateInsight } from "./services/insightGeneration";
 // Legacy claudeService removed - now using dualLLMService
 import { isAnthropicConfigured } from "./services/dualLLMService";
 import { generatePremiumInsight, convertToLegacyFormat } from "./services/premiumInsightPipeline";
+import { normalizeSectionsForExport, generateTableOfContents } from "./services/sectionNormalizer";
 import { streamPremiumInsight, StreamingProgress } from "./services/streamingPremiumPipeline";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
 import { generatePremiumPDF, generateMarkdownExport, generatePlainTextExport, generateHTMLExport } from "./services/pdfExport";
@@ -197,9 +198,16 @@ export const appRouter = router({
             insightId 
           });
 
-          // Store content blocks with premium section types
-          for (let i = 0; i < premiumInsight.sections.length; i++) {
-            const section = premiumInsight.sections[i];
+          // Normalize premium sections for export-friendly storage
+          const normalizedSections = normalizeSectionsForExport(premiumInsight.sections);
+          logGeneration('Sections normalized for export', { 
+            originalCount: premiumInsight.sections.length,
+            normalizedCount: normalizedSections.length 
+          });
+          
+          // Store normalized content blocks
+          for (let i = 0; i < normalizedSections.length; i++) {
+            const section = normalizedSections[i];
             await db.createContentBlock({
               insightId,
               blockType: section.type,
@@ -208,9 +216,7 @@ export const appRouter = router({
               orderIndex: i,
               visualType: section.visualType || null,
               visualData: section.visualData ? JSON.stringify(section.visualData) : null,
-              listItems: (section.metadata?.actionSteps && Array.isArray(section.metadata.actionSteps)) 
-                ? JSON.stringify(section.metadata.actionSteps) 
-                : null,
+              listItems: section.type === 'list' ? section.content : null,
             });
           }
 
