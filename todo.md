@@ -366,3 +366,9 @@
 
 ### Test Fixes
 - [x] Fix failing Anthropic API test (changed assertion to accept any valid response)
+
+## External Code Review Issues (Pasted_content_07.txt)
+- [x] Review and document platform-specific dependencies (vite-plugin-manus-runtime)
+- [x] Fix HTML template analytics script syntax issue in client/index.html (not an error - handled by vitePluginManusRuntime)
+- [x] Add README documentation for required environment variables
+- [x] Document that app is designed for Manus platform deployment
