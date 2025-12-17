@@ -432,24 +432,28 @@ export const appRouter = router({
           
           // Sanitize strings to prevent browser API errors
           // This is critical because tRPC may use these strings in URL construction
-          const sanitizeString = (str: string | null | undefined): string => {
+          const sanitizeString = (str: string | null | undefined, fieldName: string = 'unknown'): string => {
             if (!str) return '';
-            let cleaned = String(str)
-              .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-              .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates  
-              .replace(/[\r\n\t]/g, ' ') // Replace newlines/tabs with spaces
-              .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove all control chars
-              .trim()
-              .substring(0, 500); // Limit length to prevent URL overflow
             
-            // Additional safety: ensure it's valid UTF-8 and URL-encodable
             try {
+              let cleaned = String(str)
+                .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
+                .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
+                .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '') // Keep only valid Unicode
+                .replace(/[\r\n\t]/g, ' ') // Replace newlines/tabs with spaces
+                .trim()
+                .substring(0, 500); // Limit length
+              
               // Test if it can be URL encoded without errors
               encodeURIComponent(cleaned);
               return cleaned;
             } catch (e) {
-              // If encoding fails, return empty string
-              console.error('[getStatus] String encoding failed, returning empty');
+              // If encoding fails, log details and return empty string
+              console.error(`[getStatus] String encoding failed for ${fieldName}:`, {
+                error: e instanceof Error ? e.message : String(e),
+                originalLength: str?.length,
+                firstChars: str?.substring(0, 50)
+              });
               return '';
             }
           };
@@ -464,8 +468,8 @@ export const appRouter = router({
             currentStage: insight.currentStage || "pending",
             progress,
             sectionCount: contentBlocks.length || 0,
-            title: sanitizeString(insight.title),
-            summary: sanitizeString(insight.summary),
+            title: sanitizeString(insight.title, 'title'),
+            summary: sanitizeString(insight.summary, 'summary'),
           };
           
           console.log('[getStatus] Returning status:', {
