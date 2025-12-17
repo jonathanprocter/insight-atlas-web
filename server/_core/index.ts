@@ -7,6 +7,9 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { getRedisClient, isRedisAvailable } from "./redis";
+import { initWebSocket } from "./websocket";
+import { standardLimiter } from "./rateLimiter";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,9 +33,31 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // Initialize Redis connection (optional - will fall back to memory if unavailable)
+  getRedisClient();
+  console.log(`[Server] Redis available: ${isRedisAvailable()}`);
+
+  // Initialize WebSocket server for real-time progress updates
+  initWebSocket(server);
+  console.log('[Server] WebSocket server initialized');
+
+  // Apply standard rate limiting to all API routes
+  app.use('/api', standardLimiter);
+
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Health check endpoint (excluded from rate limiting)
+  app.get('/health', (req, res) => {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      redis: isRedisAvailable()
+    });
+  });
+
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API

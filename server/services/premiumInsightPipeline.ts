@@ -17,6 +17,7 @@ import { runGapAnalysis, mergeGapFilledContent } from './gapAnalysisService';
 import { invokeLLM } from '../_core/llm';
 import { generateAudioNarration, isElevenLabsConfigured, AudioGenerationResult } from './elevenLabsService';
 import { debugLog, logGeneration, logLLM, logError, timedOperation } from './debugLogger';
+import { broadcastProgress, notifyComplete, notifyFailed } from '../_core/websocket';
 
 export interface InsightSection {
   id: string;
@@ -54,10 +55,29 @@ export async function generatePremiumInsight(
   updateProgress?: (stage: string, progress: number) => Promise<void>
 ): Promise<GeneratedInsight> {
   logGeneration('=== PREMIUM PIPELINE START ===', { bookTitle, bookAuthor, textLength: bookText.length });
+
+  // Helper to broadcast via WebSocket and callback
+  const broadcastUpdate = async (percent: number, step: string, sectionCount?: number, wordCount?: number) => {
+    if (insightId) {
+      await broadcastProgress({
+        insightId,
+        status: 'generating',
+        percent,
+        currentStep: step,
+        sectionCount,
+        wordCount,
+      });
+    }
+    // Map to callback format
+    const stage = percent < 30 ? 'analyzing' : percent < 90 ? 'generating' : 'finalizing';
+    await updateProgress?.(stage, percent);
+  };
+
+  try {
   logGeneration('Starting Stage 0: Book Analysis...');
-  
-  // Update progress: Starting analysis (0%)
-  await updateProgress?.('analyzing', 0);
+
+  // Update progress: Starting analysis (5%)
+  await broadcastUpdate(5, 'Analyzing book structure and themes');
   
   // Stage 0: Analyze the book
   const analysis = await timedOperation('generation', 'Stage 0: Book Analysis', async () => {
@@ -69,11 +89,12 @@ export async function generatePremiumInsight(
     themes: analysis.coreConcepts.map(c => c.conceptName)
   });
   
-  // Update progress: Analysis complete (30%)
-  await updateProgress?.('generating', 30);
+  // Update progress: Analysis complete (25%)
+  await broadcastUpdate(25, 'Book analysis complete', 0, 0);
 
   logGeneration('Starting Stage 1: Premium Content Generation (Chunked)...');
-  
+  await broadcastUpdate(30, 'Generating premium content');
+
   // Stage 1: Generate premium content in chunks to meet 9-12k word requirement
   const guide = await timedOperation('generation', 'Stage 1: Premium Content (Chunked)', async () => {
     return generatePremiumContentChunked(analysis, bookText);
@@ -85,11 +106,12 @@ export async function generatePremiumInsight(
     sectionTypes: guide.sections.map(s => s.type)
   });
   
-  // Update progress: Content generation complete (90%)
-  await updateProgress?.('finalizing', 90);
+  // Update progress: Content generation complete (65%)
+  await broadcastUpdate(65, 'Premium content generated', guide.sections.length, guide.wordCount);
 
   // Gap Analysis: Check all 9 dimensions and fill missing content
   logGeneration('Starting Gap Analysis & Content Completion...');
+  await broadcastUpdate(70, 'Running gap analysis');
   let finalSections = guide.sections;
   let gapAnalysisApplied = false;
   let completenessScore = 100;
@@ -172,12 +194,14 @@ export async function generatePremiumInsight(
       logGeneration('No gaps found - content is complete', { completenessScore });
     }
   } catch (gapError) {
-    logError('generation', 'Gap Analysis failed, using Stage 1 output', { 
+    logError('generation', 'Gap Analysis failed, using Stage 1 output', {
       error: gapError instanceof Error ? gapError.message : String(gapError),
       stack: gapError instanceof Error ? gapError.stack : undefined
     });
     finalSections = guide.sections;
   }
+
+  await broadcastUpdate(80, 'Gap analysis complete', finalSections.length, 0);
 
   // Calculate updated word count
   const totalWordCount = finalSections.reduce((sum, s) => {
@@ -204,6 +228,7 @@ export async function generatePremiumInsight(
 
   // Generate audio script from the content (using built-in LLM for formatting)
   logGeneration('Generating audio script...');
+  await broadcastUpdate(85, 'Generating audio script', finalSections.length, totalWordCount);
   const audioScript = await generateAudioScript(
     { ...guide, sections: finalSections },
     analysis
@@ -212,9 +237,10 @@ export async function generatePremiumInsight(
   // Generate audio narration using ElevenLabs if configured
   let audioUrl: string | undefined;
   let audioDuration: number | undefined;
-  
+
   if (isElevenLabsConfigured() && audioScript.length > 100) {
     logGeneration('Generating audio narration with ElevenLabs...', { scriptLength: audioScript.length });
+    await broadcastUpdate(90, 'Generating audio narration', finalSections.length, totalWordCount);
     try {
       // Use a unique ID for the audio file (based on book title hash)
       const bookId = Buffer.from(bookTitle).toString('base64').slice(0, 12).replace(/[^a-zA-Z0-9]/g, '');
@@ -244,10 +270,13 @@ export async function generatePremiumInsight(
     hasAudio: !!audioUrl
   });
   
+  // Update progress: Finalizing (95%)
+  await broadcastUpdate(95, 'Finalizing insight guide', finalSections.length, totalWordCount);
+
   // Update progress: Pipeline complete (100%)
   await updateProgress?.('completed', 100);
 
-  return {
+  const result = {
     title: guide.title,
     summary: summary.substring(0, 1000), // First 1000 chars for summary
     keyThemes,
@@ -261,6 +290,32 @@ export async function generatePremiumInsight(
     gapAnalysisApplied,
     completenessScore
   };
+
+  // Notify WebSocket clients of completion
+  if (insightId) {
+    await notifyComplete(insightId, {
+      wordCount: totalWordCount,
+      sectionCount: finalSections.length,
+      hasAudio: !!audioUrl
+    });
+  }
+
+  return result;
+  } catch (error) {
+    // Notify WebSocket clients of failure
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError('generation', 'Premium pipeline failed', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      bookTitle
+    });
+
+    if (insightId) {
+      await notifyFailed(insightId, errorMessage);
+    }
+
+    throw error;
+  }
 }
 
 /**

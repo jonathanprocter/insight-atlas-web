@@ -1,7 +1,7 @@
 import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, uploadProcedure, insightProcedure, audioProcedure, exportProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { safeJsonParse } from "./db";
@@ -41,8 +41,8 @@ export const appRouter = router({
 
   // Books router - all public procedures
   books: router({
-    // Upload and process a book file
-    upload: publicProcedure
+    // Upload and process a book file (rate limited: 20/hour)
+    upload: uploadProcedure
       .input(z.object({
         filename: z.string(),
         mimeType: z.string(),
@@ -143,8 +143,8 @@ export const appRouter = router({
 
   // Insights router - all public procedures
   insights: router({
-    // Generate insights for a book
-    generate: publicProcedure
+    // Generate insights for a book (rate limited: 10/hour)
+    generate: insightProcedure
       .input(z.object({ bookId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         let insightId: number | null = null;
@@ -518,8 +518,8 @@ export const appRouter = router({
 
   // Audio router
   audio: router({
-    // Generate audio narration
-    generate: publicProcedure
+    // Generate audio narration (rate limited: 15/hour)
+    generate: audioProcedure
       .input(z.object({
         insightId: z.number(),
         voiceId: z.string().optional(),
@@ -627,10 +627,10 @@ export const appRouter = router({
       }),
   }),
 
-  // Export router - multiple formats
+  // Export router - multiple formats (rate limited: 30/hour)
   export: router({
     // Generate PDF export
-    pdf: publicProcedure
+    pdf: exportProcedure
       .input(z.object({ insightId: z.number() }))
       .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
@@ -670,7 +670,7 @@ export const appRouter = router({
       }),
 
     // Generate Markdown export
-    markdown: publicProcedure
+    markdown: exportProcedure
       .input(z.object({ insightId: z.number() }))
       .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
@@ -700,7 +700,7 @@ export const appRouter = router({
       }),
 
     // Generate Plain Text export
-    plainText: publicProcedure
+    plainText: exportProcedure
       .input(z.object({ insightId: z.number() }))
       .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
@@ -730,7 +730,7 @@ export const appRouter = router({
       }),
 
     // Generate HTML export
-    html: publicProcedure
+    html: exportProcedure
       .input(z.object({ insightId: z.number() }))
       .mutation(async ({ input }) => {
         const insight = await db.getInsightById(input.insightId);
