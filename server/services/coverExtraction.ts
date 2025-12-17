@@ -84,6 +84,12 @@ export async function extractEpubCover(buffer: Buffer): Promise<{ coverBuffer: B
  * Uses pdfjs-dist and canvas to render the first page as an image
  */
 export async function extractPdfCover(buffer: Buffer): Promise<{ coverBuffer: Buffer; mimeType: string } | null> {
+  // Canvas package disabled due to deployment compatibility issues
+  // Cover extraction is non-critical - books work fine without cover images
+  console.log("[Cover Extraction] PDF cover extraction disabled (canvas not available in production)");
+  return null;
+  
+  /* Disabled canvas-based implementation - requires native dependencies not available in production
   try {
     console.log("[Cover Extraction] Starting PDF cover extraction...");
     
@@ -124,6 +130,7 @@ export async function extractPdfCover(buffer: Buffer): Promise<{ coverBuffer: Bu
     console.error("[Cover Extraction] PDF cover extraction failed:", error);
     return null;
   }
+  */
 }
 
 /**

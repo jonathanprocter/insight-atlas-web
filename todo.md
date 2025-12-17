@@ -533,3 +533,10 @@
 - [ ] Server startup issue - too many file watchers (EMFILE error)
 - [ ] Test real-time progress updates via WebSocket
 - [ ] Test rate limiting functionality
+
+## BLOCKING DEPLOYMENT - Canvas Package Build Failure
+- [x] Canvas package fails to build on deployment server (missing pixman-1 system dependency)
+- [x] Find where canvas is used in codebase (coverExtraction.ts for PDF cover images)
+- [x] Remove canvas dependency or replace with deployment-compatible alternative (disabled PDF cover extraction)
+- [x] Removed canvas from package.json
+- [ ] Test deployment
