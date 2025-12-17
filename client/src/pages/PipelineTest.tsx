@@ -80,9 +80,7 @@ export default function PipelineTestPage() {
   const generateMutation = trpc.insights.generate.useMutation({
     onSuccess: (data) => {
       setInsightId(data.insightId);
-      setSectionCount(data.sectionCount);
-      setWordCount(data.wordCount);
-      addLog(`Insights generated! ID: ${data.insightId}, Sections: ${data.sectionCount}, Words: ${data.wordCount}`);
+      addLog(`Insights generated! ID: ${data.insightId}`);
       setStage("complete");
       toast.success("Pipeline completed successfully!");
     },

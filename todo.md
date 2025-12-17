@@ -465,3 +465,13 @@
 ### Bug #5 - Error Message Corruption
 - [ ] Fix error message truncation in routers.ts
 - [ ] Use UTF-8 safe truncation to prevent "Failed to parse URL" errors
+
+## DEEP AUDIT - Insight Generation Still Failing (Dec 17, 2025)
+- [x] Trace complete flow: Book.tsx → routers.ts → premiumInsightPipeline.ts → stage0/stage1
+- [x] Check server logs for actual error during latest generation attempt (FOUND: Generation succeeds!)
+- [x] Verify Claude API is being called correctly with 8k tokens (Working correctly)
+- [x] Check if OpenAI fallback is working when Claude times out (Not needed - Claude works)
+- [x] Verify JSON parsing and validation layer (Working)
+- [x] Check if database is saving partial results (Insight 870001 saved successfully!)
+- [x] ROOT CAUSE: tRPC serialization error on complex return object
+- [x] FIX: Simplified return to just {insightId}, frontend polls for full data

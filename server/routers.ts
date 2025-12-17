@@ -230,33 +230,11 @@ export const appRouter = router({
               .trim();
           };
 
-          const result = {
-            insightId,
-            title: sanitizeString(premiumInsight.title),
-            summary: sanitizeString(premiumInsight.summary),
-            keyThemes: premiumInsight.keyThemes.map(t => sanitizeString(t)),
-            sectionCount: premiumInsight.sections.length,
-            wordCount: premiumInsight.wordCount,
-          };
-
-          logGeneration('Returning sanitized result', { 
-            insightId: result.insightId,
-            titleLength: result.title.length,
-            summaryLength: result.summary.length,
-            keyThemesCount: result.keyThemes.length
-          });
-
-          // Test superjson serialization before returning
-          try {
-            const testSerialized = JSON.stringify(result);
-            logGeneration('JSON stringify test passed', { length: testSerialized.length });
-          } catch (serError) {
-            logError('generation', 'JSON stringify failed', { 
-              error: serError instanceof Error ? serError.message : String(serError)
-            });
-          }
-
-          return result;
+          // Return only insightId to avoid tRPC serialization issues
+          // The frontend will poll for the full data via getStatus
+          logGeneration('Returning insightId', { insightId });
+          
+          return { insightId };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           // Sanitize error message to prevent browser URL parsing issues

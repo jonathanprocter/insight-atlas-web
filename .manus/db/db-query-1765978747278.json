@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, bookId, status, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, status, createdAt FROM insights ORDER BY createdAt DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "870001",
+      "bookId": "930001",
+      "status": "completed",
+      "createdAt": "2025-12-17 13:32:27"
+    },
+    {
+      "id": "840001",
+      "bookId": "900002",
+      "status": "completed",
+      "createdAt": "2025-12-17 11:56:12"
+    },
+    {
+      "id": "810001",
+      "bookId": "870002",
+      "status": "generating",
+      "createdAt": "2025-12-17 11:36:45"
+    },
+    {
+      "id": "780001",
+      "bookId": "840001",
+      "status": "completed",
+      "createdAt": "2025-12-17 11:11:11"
+    },
+    {
+      "id": "750001",
+      "bookId": "810002",
+      "status": "completed",
+      "createdAt": "2025-12-17 09:38:09"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\tstatus\tcreatedAt\n870001\t930001\tcompleted\t2025-12-17 13:32:27\n840001\t900002\tcompleted\t2025-12-17 11:56:12\n810001\t870002\tgenerating\t2025-12-17 11:36:45\n780001\t840001\tcompleted\t2025-12-17 11:11:11\n750001\t810002\tcompleted\t2025-12-17 09:38:09\n",
+  "stderr": "",
+  "execution_time_ms": 171
+}

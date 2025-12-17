@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, status, title, summary, wordCount FROM insights WHERE id = 870001",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, status, title, summary, wordCount FROM insights WHERE id = 870001",
+  "rows": [],
+  "messages": [
+    "870001\tcompleted\tTaming the Molecule of More: Your Complete Guide to Making Dopamine Work for You\t**One-Sentence Premise:** This practical follow-up to \"The Molecule of More\" provides specific, science-backed strategies to harness dopamine's power while avoiding its traps in our modern world.",
+    "**The Framework:** Dopamine operates through two interconnected systems—desire dopamine (the alarm system that creates wanting) and control dopamine (the planning system that enables pursuit)—but this ancient survival mechanism now overwhelms us with constant stimulation in our safe, modern environment. The solution requires both understanding these systems and implementing specific techniques to balance future-focused dopamine with present-moment satisfaction.",
+    "**Core Principles:**",
+    "- **Reward Prediction Error:** Dopamine responds to the possibility of exceeding expectations, not the reward itself—explaining why surprises matter more than certainties",
+    "- **Tolerance and Downregulation:** Repeated stimulation requires increasingly more input to achieve the same response, leading to addiction pat\t4790"
+  ],
+  "stdout": "id\tstatus\ttitle\tsummary\twordCount\n870001\tcompleted\tTaming the Molecule of More: Your Complete Guide to Making Dopamine Work for You\t**One-Sentence Premise:** This practical follow-up to \"The Molecule of More\" provides specific, science-backed strategies to harness dopamine's power while avoiding its traps in our modern world.\n\n**The Framework:** Dopamine operates through two interconnected systems—desire dopamine (the alarm system that creates wanting) and control dopamine (the planning system that enables pursuit)—but this ancient survival mechanism now overwhelms us with constant stimulation in our safe, modern environment. The solution requires both understanding these systems and implementing specific techniques to balance future-focused dopamine with present-moment satisfaction.\n\n**Core Principles:**\n- **Reward Prediction Error:** Dopamine responds to the possibility of exceeding expectations, not the reward itself—explaining why surprises matter more than certainties\n- **Tolerance and Downregulation:** Repeated stimulation requires increasingly more input to achieve the same response, leading to addiction pat\t4790\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}
