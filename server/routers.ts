@@ -80,7 +80,13 @@ export const appRouter = router({
           // Extract and upload cover image
           let coverUrl: string | null = null;
           try {
-            coverUrl = await extractAndUploadCover(buffer, extracted.fileType, bookId);
+            coverUrl = await extractAndUploadCover(
+              buffer, 
+              extracted.fileType, 
+              bookId,
+              extracted.title,
+              extracted.author
+            );
             if (coverUrl) {
               await db.updateBook(bookId, { coverUrl });
             }

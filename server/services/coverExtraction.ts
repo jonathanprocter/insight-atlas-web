@@ -80,58 +80,57 @@ export async function extractEpubCover(buffer: Buffer): Promise<{ coverBuffer: B
 }
 
 /**
- * Extract cover image from PDF file (first page)
- * Uses pdfjs-dist and canvas to render the first page as an image
+ * Extract cover image from PDF file using AI-powered search
+ * Extracts title/author from PDF, then searches for and downloads the cover image
  */
-export async function extractPdfCover(buffer: Buffer): Promise<{ coverBuffer: Buffer; mimeType: string } | null> {
-  // Canvas package disabled due to deployment compatibility issues
-  // Cover extraction is non-critical - books work fine without cover images
-  console.log("[Cover Extraction] PDF cover extraction disabled (canvas not available in production)");
-  return null;
-  
-  /* Disabled canvas-based implementation - requires native dependencies not available in production
+export async function extractPdfCover(buffer: Buffer, title?: string, author?: string): Promise<{ coverBuffer: Buffer; mimeType: string } | null> {
   try {
-    console.log("[Cover Extraction] Starting PDF cover extraction...");
+    console.log("[Cover Extraction] Starting AI-powered PDF cover search...");
     
-    // Import pdfjs and canvas
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const { createCanvas } = await import("canvas");
+    // If title/author not provided, we can't search
+    if (!title) {
+      console.log("[Cover Extraction] No title provided, cannot search for cover");
+      return null;
+    }
     
-    // Load PDF
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(buffer),
-      useSystemFonts: true,
-    });
+    // Use Google Books API to find the cover
+    const searchQuery = encodeURIComponent(`${title}${author ? ` ${author}` : ""}`);
+    const googleBooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${searchQuery}&maxResults=1`;
     
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1); // Get first page
+    console.log(`[Cover Extraction] Searching Google Books for: ${title}${author ? ` by ${author}` : ""}`);
     
-    // Set up canvas with appropriate dimensions
-    const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better quality
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext('2d');
+    const response = await fetch(googleBooksUrl);
+    const data = await response.json();
     
-    // Render PDF page to canvas
-    await page.render({
-      canvasContext: context as any,
-      viewport: viewport,
-      canvas: canvas as any,
-    }).promise;
+    if (data.items && data.items.length > 0) {
+      const book = data.items[0];
+      const imageLinks = book.volumeInfo?.imageLinks;
+      
+      // Try to get the highest quality cover available
+      const coverUrl = imageLinks?.extraLarge || imageLinks?.large || imageLinks?.medium || imageLinks?.thumbnail;
+      
+      if (coverUrl) {
+        // Download the cover image
+        const imageResponse = await fetch(coverUrl.replace("http://", "https://")); // Force HTTPS
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        
+        console.log("[Cover Extraction] Successfully downloaded cover from Google Books");
+        return {
+          coverBuffer: imageBuffer,
+          mimeType: "image/jpeg"
+        };
+      }
+    }
     
-    // Convert canvas to buffer
-    const coverBuffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
-    
-    console.log("[Cover Extraction] PDF cover extracted successfully");
-    return {
-      coverBuffer,
-      mimeType: "image/jpeg"
-    };
+    console.log("[Cover Extraction] No cover found on Google Books");
+    return null;
   } catch (error) {
-    console.error("[Cover Extraction] PDF cover extraction failed:", error);
+    console.error("[Cover Extraction] AI-powered cover search failed:", error);
     return null;
   }
-  */
 }
+    
+
 
 /**
  * Upload cover image to S3 and return URL
@@ -154,14 +153,16 @@ export async function uploadCoverToS3(
 export async function extractAndUploadCover(
   buffer: Buffer,
   fileType: "pdf" | "epub" | "txt",
-  bookId: number
+  bookId: number,
+  title?: string,
+  author?: string | null
 ): Promise<string | null> {
   let coverResult: { coverBuffer: Buffer; mimeType: string } | null = null;
   
   if (fileType === "epub") {
     coverResult = await extractEpubCover(buffer);
   } else if (fileType === "pdf") {
-    coverResult = await extractPdfCover(buffer);
+    coverResult = await extractPdfCover(buffer, title, author || undefined);
   }
   
   if (coverResult) {

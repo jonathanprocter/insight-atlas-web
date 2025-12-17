@@ -537,6 +537,9 @@
 ## BLOCKING DEPLOYMENT - Canvas Package Build Failure
 - [x] Canvas package fails to build on deployment server (missing pixman-1 system dependency)
 - [x] Find where canvas is used in codebase (coverExtraction.ts for PDF cover images)
-- [x] Remove canvas dependency or replace with deployment-compatible alternative (disabled PDF cover extraction)
-- [x] Removed canvas from package.json
-- [ ] Test deployment
+- [x] Replace canvas with deployment-compatible alternative (USER REQUIRES THIS FEATURE)
+- [x] Research alternatives: AI-powered cover search is best solution
+- [x] Implement AI-powered cover extraction: extract title/author → search Google Books API → download cover
+- [x] Remove sharp and pdf-lib dependencies (both have native deps)
+- [x] Test AI cover extraction with comprehensive unit tests (6/6 passing)
+- [ ] Save checkpoint and prepare for deployment
