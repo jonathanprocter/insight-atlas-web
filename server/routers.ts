@@ -8,7 +8,8 @@ import { safeJsonParse } from "./db";
 import { extractContent, truncateText } from "./services/fileExtraction";
 import { extractAndUploadCover } from "./services/coverExtraction";
 import { generateInsight } from "./services/insightGeneration";
-import { streamBookInsightsWithClaude, isClaudeConfigured } from "./services/claudeService";
+// Legacy claudeService removed - now using dualLLMService
+import { isAnthropicConfigured } from "./services/dualLLMService";
 import { generatePremiumInsight, convertToLegacyFormat } from "./services/premiumInsightPipeline";
 import { streamPremiumInsight, StreamingProgress } from "./services/streamingPremiumPipeline";
 import { generateAudioNarration, getVoiceOptions, estimateAudioDuration, VoiceId } from "./services/audioGeneration";
@@ -460,7 +461,7 @@ export const appRouter = router({
 
     // Check if Claude streaming is available
     canStream: publicProcedure.query(() => {
-      return { available: isClaudeConfigured() };
+      return { available: isAnthropicConfigured() };
     }),
 
     // Generate insights with streaming progress

@@ -441,3 +441,27 @@
 - [x] Fix author extraction from uploaded books (added LLM fallback extraction)
 - [x] Fix cover image extraction from uploaded books (implemented PDF first-page rendering with canvas)
 - [ ] Test metadata extraction with PDF/EPUB files
+
+## CRITICAL BUGS FROM CODE REVIEW (Dec 17, 2025)
+### Bug #1 - Token Limit Mismatch (PRIMARY CAUSE OF FAILURES)
+- [x] Fix Stage 1 requesting 64k tokens when Claude max is 8k (changed to 8192)
+- [x] Change stage1ContentGeneration.ts line 124 from 64000 to 8192 tokens
+- [x] Fix Stage 0 from 16000 to 8192 tokens
+- [x] This was causing truncated JSON and parse failures
+
+### Bug #2 - Database Race Condition
+- [x] Fix getDb() race condition in server/db.ts
+- [x] Add promise-based locking to prevent multiple connections
+
+### Bug #3 - Legacy Service Crash
+- [x] Remove unused legacy service imports from routers.ts
+- [x] Replace isClaudeConfigured with isAnthropicConfigured
+- [ ] Clean up remaining legacy references in insightGeneration.ts (low priority - not used)
+
+### Bug #4 - JSON Repair Edge Cases
+- [ ] Fix repairJson in gapAnalysisService.ts
+- [ ] Handle escaped quotes and bracket balancing correctly
+
+### Bug #5 - Error Message Corruption
+- [ ] Fix error message truncation in routers.ts
+- [ ] Use UTF-8 safe truncation to prevent "Failed to parse URL" errors

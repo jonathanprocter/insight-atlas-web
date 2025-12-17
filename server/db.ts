@@ -18,17 +18,27 @@ function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
 export { safeJsonParse };
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _dbPromise: Promise<ReturnType<typeof drizzle> | null> | null = null;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
+  // Return existing connection
+  if (_db) return _db;
+  
+  // Create new connection with promise-based locking to prevent race conditions
+  if (!_dbPromise && process.env.DATABASE_URL) {
+    _dbPromise = (async () => {
+      try {
+        _db = drizzle(process.env.DATABASE_URL!);
+        return _db;
+      } catch (error) {
+        console.warn("[Database] Failed to connect:", error);
+        _dbPromise = null; // Reset for retry
+        return null;
+      }
+    })();
   }
-  return _db;
+  
+  return _dbPromise;
 }
 
 // User queries

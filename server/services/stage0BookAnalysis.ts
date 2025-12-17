@@ -182,8 +182,8 @@ export async function analyzeBook(
 
   try {
     // Use Anthropic Claude as primary for book analysis
-    // Increased from 8k to 16k tokens for comprehensive book analysis
-    const response = await generateWithClaude(system, user, 16000);
+    // Claude Sonnet 4 realistic max output: 8192 tokens (was 16000 - caused timeouts)
+    const response = await generateWithClaude(system, user, 8192);
     console.log('[Stage 0] Analysis completed using:', response.provider);
 
     // Parse the JSON response

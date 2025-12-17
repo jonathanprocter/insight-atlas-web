@@ -286,12 +286,12 @@ export async function generatePremiumContent(
     // Use Anthropic Claude as primary for premium content generation
     // Enable truncation for very large books to prevent timeout
     // Increased from 16k to 64k tokens to handle large books like "Scarcity Brain" (94k words)
-    const response = await generateWithClaude(
-      STAGE_1_SYSTEM_PROMPT,
-      prompt,
-      64000,  // Increased token limit for comprehensive insights
-      { truncateInput: true }
-    );
+  const response = await generateWithClaude(
+    STAGE_1_SYSTEM_PROMPT,
+    prompt,
+    8192,  // Claude Sonnet 4 realistic max output tokens (was 64000 - caused timeouts)
+    { truncateInput: true }
+  );
 
     console.log('[Stage 1] Content generated using:', response.provider);
     console.log('[Stage 1] Response length:', response.content.length, 'characters');
