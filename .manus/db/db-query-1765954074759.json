@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, bookId, status FROM insights WHERE bookId = 690001 ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, status FROM insights WHERE bookId = 690001 ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "660001",
+      "bookId": "690001",
+      "status": "generating"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\tstatus\n660001\t690001\tgenerating\n",
+  "stderr": "",
+  "execution_time_ms": 102
+}

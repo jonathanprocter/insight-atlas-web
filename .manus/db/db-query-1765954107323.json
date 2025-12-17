@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, bookId, status, title FROM insights ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2PprtSQ4Zk9Y5ny.6019c350dade --database 933kVN2MUY2BXrPTFo6Jq7 --execute SELECT id, bookId, status, title FROM insights ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "660001",
+      "bookId": "690001",
+      "status": "generating",
+      "title": "Insights: Test Book for Audit"
+    },
+    {
+      "id": "630001",
+      "bookId": "660001",
+      "status": "completed",
+      "title": "Self-Compassion in Psychotherapy: From Buddhist Wisdom to Neuroscientific Practice"
+    },
+    {
+      "id": "600001",
+      "bookId": "630001",
+      "status": "completed",
+      "title": "Rewrite Your Reality: A Master Guide to Narrative Identity & Authentic Voice"
+    },
+    {
+      "id": "570001",
+      "bookId": "600001",
+      "status": "generating",
+      "title": "Insights: Strong Ground"
+    },
+    {
+      "id": "540002",
+      "bookId": "570002",
+      "status": "generating",
+      "title": "Insights: Mirror Meditation"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbookId\tstatus\ttitle\n660001\t690001\tgenerating\tInsights: Test Book for Audit\n630001\t660001\tcompleted\tSelf-Compassion in Psychotherapy: From Buddhist Wisdom to Neuroscientific Practice\n600001\t630001\tcompleted\tRewrite Your Reality: A Master Guide to Narrative Identity & Authentic Voice\n570001\t600001\tgenerating\tInsights: Strong Ground\n540002\t570002\tgenerating\tInsights: Mirror Meditation\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

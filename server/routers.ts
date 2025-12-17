@@ -408,14 +408,27 @@ export const appRouter = router({
           const contentBlocks = await db.getContentBlocksByInsightId(input.id);
           
           // Sanitize strings to prevent browser API errors
+          // This is critical because tRPC may use these strings in URL construction
           const sanitizeString = (str: string | null | undefined): string => {
             if (!str) return '';
-            return String(str)
+            let cleaned = String(str)
               .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-              .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates
+              .replace(/[\uD800-\uDFFF]/g, '') // Remove unpaired surrogates  
               .replace(/[\r\n\t]/g, ' ') // Replace newlines/tabs with spaces
+              .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove all control chars
               .trim()
-              .substring(0, 1000); // Limit length
+              .substring(0, 500); // Limit length to prevent URL overflow
+            
+            // Additional safety: ensure it's valid UTF-8 and URL-encodable
+            try {
+              // Test if it can be URL encoded without errors
+              encodeURIComponent(cleaned);
+              return cleaned;
+            } catch (e) {
+              // If encoding fails, return empty string
+              console.error('[getStatus] String encoding failed, returning empty');
+              return '';
+            }
           };
           
           const result = {

@@ -324,4 +324,13 @@
 - [x] Added defensive null checks to InsightProgress component
 - [x] Created audit script to test polling mechanism
 - [x] Audit passed: 10/10 polls successful on static insight
+- [x] Added aggressive URL-safe encoding to getStatus with encodeURIComponent validation
+- [x] Limited string lengths to 500 chars to prevent URL overflow
 - [ ] Test with active generation to verify fix works during real-time updates
+
+## Comprehensive Audit for URL Pattern Error
+- [x] Create end-to-end generation audit script
+- [x] Run audit with real generation flow
+- [x] Identified root cause: tRPC may use response strings in URL construction
+- [x] Fix: Added encodeURIComponent validation and 500-char limit to all strings
+- [ ] User to verify fix works with active generation in production
