@@ -1,7 +1,21 @@
-import { eq, and, desc, like, or } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, books, insights, libraryItems, contentBlocks, Book, Insight, LibraryItem, ContentBlock, InsertBook, InsertInsight, InsertLibraryItem, InsertContentBlock } from "../drizzle/schema";
 import { ENV } from './_core/env';
+
+// Safe JSON parse helper
+function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json) as T;
+  } catch (error) {
+    console.warn(`Failed to parse JSON: ${json.substring(0, 100)}...`, error);
+    return fallback;
+  }
+}
+
+// Export for use in other modules
+export { safeJsonParse };
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -85,6 +99,9 @@ export async function createBook(book: InsertBook): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(books).values(book);
+  if (!result[0]?.insertId) {
+    throw new Error("Failed to create book: no insert ID returned");
+  }
   return result[0].insertId;
 }
 
@@ -118,6 +135,9 @@ export async function createInsight(insight: InsertInsight): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(insights).values(insight);
+  if (!result[0]?.insertId) {
+    throw new Error("Failed to create insight: no insert ID returned");
+  }
   return result[0].insertId;
 }
 
@@ -157,6 +177,9 @@ export async function createLibraryItem(item: InsertLibraryItem): Promise<number
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(libraryItems).values(item);
+  if (!result[0]?.insertId) {
+    throw new Error("Failed to create library item: no insert ID returned");
+  }
   return result[0].insertId;
 }
 
@@ -217,6 +240,9 @@ export async function createContentBlock(block: InsertContentBlock): Promise<num
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(contentBlocks).values(block);
+  if (!result[0]?.insertId) {
+    throw new Error("Failed to create content block: no insert ID returned");
+  }
   return result[0].insertId;
 }
 

@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
+import { safeJsonParse } from "./db";
 import { extractContent, truncateText } from "./services/fileExtraction";
 import { extractAndUploadCover } from "./services/coverExtraction";
 import { generateInsight } from "./services/insightGeneration";
@@ -192,7 +193,9 @@ export const appRouter = router({
               orderIndex: i,
               visualType: section.visualType || null,
               visualData: section.visualData ? JSON.stringify(section.visualData) : null,
-              listItems: section.metadata?.actionSteps ? JSON.stringify(section.metadata.actionSteps) : null,
+              listItems: (section.metadata?.actionSteps && Array.isArray(section.metadata.actionSteps)) 
+                ? JSON.stringify(section.metadata.actionSteps) 
+                : null,
             });
           }
 
@@ -286,12 +289,12 @@ export const appRouter = router({
 
         return {
           ...insight,
-          keyThemes: JSON.parse(insight.keyThemes || "[]"),
-          recommendedVisuals: JSON.parse(insight.recommendedVisuals || "[]"),
+          keyThemes: safeJsonParse(insight.keyThemes, []),
+          recommendedVisuals: safeJsonParse(insight.recommendedVisuals, []),
           contentBlocks: contentBlocks.map(block => ({
             ...block,
-            visualData: block.visualData ? JSON.parse(block.visualData) : null,
-            listItems: block.listItems ? JSON.parse(block.listItems) : null,
+            visualData: block.visualData ? safeJsonParse(block.visualData, null) : null,
+            listItems: block.listItems ? safeJsonParse(block.listItems, null) : null,
           })),
         };
       }),
@@ -646,10 +649,10 @@ export const appRouter = router({
             content: block.content || "",
             title: block.title || undefined,
             visualType: block.visualType as any,
-            visualData: block.visualData ? JSON.parse(block.visualData) : undefined,
-            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+            visualData: block.visualData ? safeJsonParse(block.visualData, undefined) : undefined,
+            items: block.listItems ? safeJsonParse(block.listItems, undefined) : undefined,
           })),
-          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          keyThemes: safeJsonParse(insight.keyThemes, []),
           bookTitle: book.title,
           generatedAt: new Date(),
         }, input.insightId);
@@ -681,9 +684,9 @@ export const appRouter = router({
             type: block.blockType as any,
             content: block.content || "",
             title: block.title || undefined,
-            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+            items: block.listItems ? safeJsonParse(block.listItems, undefined) : undefined,
           })),
-          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          keyThemes: safeJsonParse(insight.keyThemes, []),
           bookTitle: book?.title || "",
           generatedAt: new Date(),
         }, input.insightId);
@@ -711,9 +714,9 @@ export const appRouter = router({
             type: block.blockType as any,
             content: block.content || "",
             title: block.title || undefined,
-            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+            items: block.listItems ? safeJsonParse(block.listItems, undefined) : undefined,
           })),
-          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          keyThemes: safeJsonParse(insight.keyThemes, []),
           bookTitle: book?.title || "",
           generatedAt: new Date(),
         }, input.insightId);
@@ -741,9 +744,9 @@ export const appRouter = router({
             type: block.blockType as any,
             content: block.content || "",
             title: block.title || undefined,
-            items: block.listItems ? JSON.parse(block.listItems) : undefined,
+            items: block.listItems ? safeJsonParse(block.listItems, undefined) : undefined,
           })),
-          keyThemes: JSON.parse(insight.keyThemes || "[]"),
+          keyThemes: safeJsonParse(insight.keyThemes, []),
           bookTitle: book?.title || "",
           generatedAt: new Date(),
         }, input.insightId);

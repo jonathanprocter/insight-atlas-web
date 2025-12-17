@@ -150,28 +150,28 @@ export default function InsightPage() {
       }
     };
 
-    if (insight?.audioUrl && isValidUrl(insight.audioUrl) && !audioRef.current) {
-      audioRef.current = new Audio(insight.audioUrl);
-      audioRef.current.addEventListener("timeupdate", () => {
-        if (audioRef.current) {
-          setAudioProgress(audioRef.current.currentTime);
-        }
-      });
-      audioRef.current.addEventListener("loadedmetadata", () => {
-        if (audioRef.current) {
-          setAudioDuration(audioRef.current.duration);
-        }
-      });
-      audioRef.current.addEventListener("ended", () => {
-        setIsPlaying(false);
-        setAudioProgress(0);
-      });
-    }
+    if (!insight?.audioUrl || !isValidUrl(insight.audioUrl)) return;
+    
+    const audio = new Audio(insight.audioUrl);
+    audioRef.current = audio;
+    
+    const handleTimeUpdate = () => setAudioProgress(audio.currentTime);
+    const handleLoadedMetadata = () => setAudioDuration(audio.duration);
+    const handleEnded = () => { 
+      setIsPlaying(false); 
+      setAudioProgress(0); 
+    };
+    
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("ended", handleEnded);
+    
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("ended", handleEnded);
+      audio.pause();
+      audioRef.current = null;
     };
   }, [insight?.audioUrl]);
 
