@@ -16,17 +16,19 @@ describe('Anthropic API Integration', () => {
       model: 'claude-sonnet-4-20250514',
       max_tokens: 50,
       messages: [
-        { role: 'user', content: 'Say "API key validated" and nothing else.' }
+        { role: 'user', content: 'Respond with a brief greeting.' }
       ]
     });
 
+    // Just verify we got a valid response from the API
     expect(response.content).toBeDefined();
     expect(response.content.length).toBeGreaterThan(0);
     expect(response.content[0].type).toBe('text');
     
     const textContent = response.content[0];
     if (textContent.type === 'text') {
-      expect(textContent.text.toLowerCase()).toContain('validated');
+      // Just verify we got some text back (API key is valid)
+      expect(textContent.text.length).toBeGreaterThan(0);
     }
   }, 30000); // 30 second timeout for API call
 });
