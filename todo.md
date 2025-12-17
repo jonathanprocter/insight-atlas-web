@@ -520,3 +520,16 @@
 - [x] Add quality metrics logging (avg words per section, section type distribution, visual coverage)
 - [ ] Implement retry logic if validation fails (future enhancement)
 - [x] Add detailed error messages explaining what failed validation
+
+## Integration of New Infrastructure Files
+- [x] Audit WebSocket implementation in server/_core/websocket.ts (real-time progress updates)
+- [x] Audit Redis implementation in server/_core/redis.ts (caching with memory fallback)
+- [x] Audit rate limiter implementation in server/_core/rateLimiter.ts (API protection)
+- [x] Check if WebSocket is connected to insight generation progress (YES - broadcastProgress in premiumInsightPipeline)
+- [x] Check if rate limiter is applied to tRPC endpoints (YES - standardLimiter on /api routes)
+- [x] Verify Redis is properly configured and used (YES - optional with memory fallback)
+- [x] Install missing dependencies (ioredis, ws, express-rate-limit, @types/ws)
+- [x] Fix TypeScript errors in redis.ts and websocket.ts
+- [ ] Server startup issue - too many file watchers (EMFILE error)
+- [ ] Test real-time progress updates via WebSocket
+- [ ] Test rate limiting functionality

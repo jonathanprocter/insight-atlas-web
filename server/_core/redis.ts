@@ -36,7 +36,7 @@ export function getRedisClient(): Redis | null {
       redisAvailable = true;
     });
 
-    redisClient.on('error', (err) => {
+    redisClient.on('error', (err: Error) => {
       console.error('[Redis] Connection error:', err.message);
       redisAvailable = false;
     });
@@ -47,7 +47,7 @@ export function getRedisClient(): Redis | null {
     });
 
     // Try to connect
-    redisClient.connect().catch((err) => {
+    redisClient.connect().catch((err: Error) => {
       console.error('[Redis] Failed to connect:', err.message);
       redisAvailable = false;
     });
