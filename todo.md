@@ -562,6 +562,7 @@
 - [x] Add file-based error logging to capture full error details
 - [x] Log all generation errors with stack traces to /tmp/insight-atlas-errors.json
 - [x] Create errorViewer tRPC router to read logged errors
+- [x] Add error logging to getStatus query (likely source of error)
 - [ ] Deploy to production and trigger generation
 - [ ] Read error logs via trpc.errorViewer.getErrors
 - [ ] Fix root cause based on error data

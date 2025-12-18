@@ -507,6 +507,23 @@ export const appRouter = router({
           
           return result;
         } catch (error) {
+          // Log error details
+          const { logError: logErrorToFile } = await import('./errorLogger.js');
+          
+          logErrorToFile({
+            timestamp: new Date().toISOString(),
+            errorType: 'getStatus_query',
+            errorMessage: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            requestPath: 'insights.getStatus',
+            requestInput: { id: input.id },
+            insightId: input.id,
+            additionalInfo: {
+              errorName: error instanceof Error ? error.name : 'Unknown',
+              errorConstructor: error?.constructor?.name,
+            }
+          });
+          
           console.error('[getStatus] Error:', error);
           return { status: "failed" as const, progress: 0, sectionCount: 0, title: "", summary: "" };
         }
