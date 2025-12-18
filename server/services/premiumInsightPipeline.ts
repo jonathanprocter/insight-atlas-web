@@ -273,16 +273,24 @@ export async function generatePremiumInsight(
   // Update progress: Finalizing (95%)
   await broadcastUpdate(95, 'Finalizing insight guide', finalSections.length, totalWordCount);
 
+  // Sanitize all text content to prevent JSON parsing errors
+  const { sanitizeText, sanitizeSections } = await import('../utils/textSanitizer.js');
+  const sanitizedSections = sanitizeSections(finalSections);
+  const sanitizedTableOfContents = tableOfContents.map(toc => ({
+    ...toc,
+    title: sanitizeText(toc.title)
+  }));
+
   // Update progress: Pipeline complete (100%)
   await updateProgress?.('completed', 100);
 
   const result = {
-    title: guide.title,
-    summary: summary.substring(0, 1000), // First 1000 chars for summary
-    keyThemes,
-    sections: finalSections,
-    tableOfContents,
-    audioScript,
+    title: sanitizeText(guide.title),
+    summary: sanitizeText(summary.substring(0, 1000)), // First 1000 chars for summary
+    keyThemes: keyThemes.map(sanitizeText),
+    sections: sanitizedSections,
+    tableOfContents: sanitizedTableOfContents,
+    audioScript: sanitizeText(audioScript),
     audioUrl,
     audioDuration,
     wordCount: totalWordCount,

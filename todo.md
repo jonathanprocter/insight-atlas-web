@@ -595,3 +595,11 @@
 - [x] Use plain JSON serialization instead
 - [x] Superjson may have been creating invalid strings during serialization
 - [ ] Deploy and test
+
+## JSON Parsing Error Fix (CURRENT - ROOT CAUSE FOUND!)
+- [x] Error: "Unterminated string in JSON at position 36084"
+- [x] LLM-generated content contains unescaped quotes that break JSON
+- [x] Add sanitization function to escape quotes in all text fields
+- [x] Apply sanitization in premiumInsightPipeline before returning result
+- [x] Sanitizes: title, summary, keyThemes, sections, tableOfContents, audioScript
+- [ ] Deploy and test with real generation
