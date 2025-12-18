@@ -588,3 +588,10 @@
 - [x] Replaced httpBatchLink with httpLink to eliminate request batching
 - [x] Batching was encoding data in URL query strings which may have caused invalid URLs
 - [ ] Deploy and test if error is resolved
+
+## Remove Superjson Transformer (CURRENT)
+- [x] Remove superjson transformer from tRPC client
+- [x] Remove superjson from server tRPC config
+- [x] Use plain JSON serialization instead
+- [x] Superjson may have been creating invalid strings during serialization
+- [ ] Deploy and test
