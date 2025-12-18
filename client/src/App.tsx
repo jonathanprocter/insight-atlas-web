@@ -9,6 +9,7 @@ import Book from "./pages/Book";
 import Insight from "./pages/Insight";
 import Library from "./pages/Library";
 import PipelineTest from "./pages/PipelineTest";
+import ErrorDebug from "./pages/ErrorDebug";
 import { DebugPanel } from "./components/DebugPanel";
 
 function Router() {
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/insight/:id" component={Insight} />
       <Route path="/library" component={Library} />
       <Route path="/test-pipeline" component={PipelineTest} />
+      <Route path="/error-debug" component={ErrorDebug} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -572,5 +572,14 @@
 - [x] broadcastProgress() already integrated in generation pipeline
 - [x] Update frontend to connect to WebSocket and listen for progress
 - [x] Remove polling-based getStatus query from frontend
-- [ ] Test WebSocket connection and progress updates
-- [ ] Deploy and verify error is resolved
+- [x] Replaced InsightProgress component with WebSocket implementation
+- [ ] Deploy and test with real generation
+- [ ] Verify error is resolved
+
+## Mutation Error Investigation (CURRENT)
+- [x] Check Book.tsx generate mutation call
+- [x] Add console.log to mutation onError handler
+- [x] Add try-catch around mutation call
+- [x] Create error debug page at /error-debug that displays all errors on screen
+- [x] Captures global errors, mutation errors, and server errors
+- [ ] Deploy and visit /error-debug to see errors without console

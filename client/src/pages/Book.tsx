@@ -157,7 +157,23 @@ export default function BookPage() {
                     {!hasInsight ? (
                       <Button
                         className="btn-gold btn-mobile w-full md:w-auto"
-                        onClick={() => generateMutation.mutate({ bookId })}
+                        onClick={() => {
+                          try {
+                            console.log('[Book] Calling generateMutation.mutate with bookId:', bookId);
+                            console.log('[Book] Mutation state before call:', {
+                              isPending: generateMutation.isPending,
+                              isError: generateMutation.isError,
+                              error: generateMutation.error
+                            });
+                            generateMutation.mutate({ bookId });
+                          } catch (error) {
+                            console.error('[Book] Error calling mutation:', error);
+                            console.error('[Book] Error type:', error?.constructor?.name);
+                            console.error('[Book] Error message:', error instanceof Error ? error.message : String(error));
+                            console.error('[Book] Error stack:', error instanceof Error ? error.stack : 'no stack');
+                            toast.error('Failed to start generation');
+                          }
+                        }}
                         disabled={generateMutation.isPending}
                       >
                         {generateMutation.isPending ? (
