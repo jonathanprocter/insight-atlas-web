@@ -566,3 +566,11 @@
 - [ ] Deploy to production and trigger generation
 - [ ] Read error logs via trpc.errorViewer.getErrors
 - [ ] Fix root cause based on error data
+
+## WebSocket Progress Updates (CURRENT)
+- [x] WebSocket server already exists at /ws path
+- [x] broadcastProgress() already integrated in generation pipeline
+- [x] Update frontend to connect to WebSocket and listen for progress
+- [x] Remove polling-based getStatus query from frontend
+- [ ] Test WebSocket connection and progress updates
+- [ ] Deploy and verify error is resolved

@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { trpc } from "@/lib/trpc";
 import {
   Sparkles,
   BookOpen,
@@ -32,131 +31,146 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
 export function InsightProgress({ insightId, onComplete }: InsightProgressProps) {
   const [sections, setSections] = useState<Array<{ type: string; content?: string }>>([]);
   const [progress, setProgress] = useState(5);
-  const [statusMessage, setStatusMessage] = useState("Starting analysis with Claude...");
-  const [errorCount, setErrorCount] = useState(0);
-  const [shouldPoll, setShouldPoll] = useState(true);
-
-  // Poll for status updates - stop after 3 consecutive errors
-  const { data: status, error: statusError } = trpc.insights.getStatus.useQuery(
-    { id: insightId },
-    {
-      refetchInterval: 1000, // Poll every second
-      enabled: !!insightId && shouldPoll && errorCount < 3,
-      retry: false, // Don't retry failed queries
-      refetchOnWindowFocus: false,
-    }
-  );
-  
-  // Track errors and stop polling after 3 consecutive failures
-  useEffect(() => {
-    if (statusError) {
-      console.log('[InsightProgress] Status query error (non-critical):', statusError.message);
-      setErrorCount(prev => prev + 1);
-      
-      if (errorCount >= 2) {
-        console.warn('[InsightProgress] Too many errors, stopping polling');
-        setShouldPoll(false);
-        setStatusMessage("Connection issue detected. Please refresh the page.");
-      }
-    } else if (status) {
-      // Reset error count on successful query
-      setErrorCount(0);
-    }
-  }, [statusError, status, errorCount]);
+  const [statusMessage, setStatusMessage] = useState("Connecting to generation service...");
+  const [status, setStatus] = useState<'generating' | 'completed' | 'failed' | 'connecting'>('connecting');
 
   useEffect(() => {
-    if (status) {
-      // Safely access progress with fallback
-      const progressValue = typeof status.progress === 'number' ? status.progress : 5;
-      setProgress(progressValue);
+    // Create WebSocket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    console.log('[InsightProgress] Connecting to WebSocket:', wsUrl);
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('[InsightProgress] WebSocket connected');
+      setStatusMessage("Starting analysis with Claude...");
       
-      // Update status message based on current stage
-      const stage = (status as any).currentStage || 'pending';
-      if (stage === 'analyzing') {
-        setStatusMessage('Analyzing book structure and key concepts...');
-      } else if (stage === 'generating') {
-        setStatusMessage('Generating comprehensive insights...');
-      } else if (stage === 'finalizing') {
-        setStatusMessage('Finalizing content and creating audio script...');
-      } else if (stage === 'completed') {
-        setStatusMessage('Analysis complete!');
+      // Subscribe to this insight's progress updates
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        insightId,
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[InsightProgress] WebSocket message:', data);
+
+        if (data.type === 'progress') {
+          // Update progress from WebSocket
+          setProgress(data.percent || 5);
+          setStatus(data.status || 'generating');
+          
+          if (data.currentStep) {
+            setStatusMessage(data.currentStep);
+          }
+
+          if (data.status === 'completed') {
+            setStatusMessage("Analysis complete!");
+            setTimeout(() => {
+              onComplete();
+            }, 500);
+          } else if (data.status === 'failed') {
+            setStatus('failed');
+            setStatusMessage(data.error || "Generation failed. Please try again.");
+          }
+        } else if (data.type === 'subscribed') {
+          console.log('[InsightProgress] Subscribed to insight', data.insightId);
+        } else if (data.type === 'connected') {
+          console.log('[InsightProgress] WebSocket connection established');
+        }
+      } catch (error) {
+        console.error('[InsightProgress] Failed to parse WebSocket message:', error);
       }
-      
-      if (status.status === "completed") {
-        setStatusMessage("Analysis complete!");
-        setShouldPoll(false); // Stop polling when complete
-        setTimeout(onComplete, 500);
-      } else if (status.status === "failed") {
-        setStatusMessage("Generation failed. Please try again.");
-        setShouldPoll(false); // Stop polling on failure
-      } else if (status.sectionCount && status.sectionCount > 0) {
-        setStatusMessage(`Generating section ${status.sectionCount}...`);
+    };
+
+    ws.onerror = (error) => {
+      console.error('[InsightProgress] WebSocket error:', error);
+      setStatusMessage("Connection error. Please refresh the page.");
+      setStatus('failed');
+    };
+
+    ws.onclose = () => {
+      console.log('[InsightProgress] WebSocket disconnected');
+      // Only show error if not completed
+      if (status !== 'completed') {
+        setStatusMessage("Connection lost. Please refresh the page.");
       }
-    }
-  }, [status, onComplete]);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'unsubscribe',
+          insightId,
+        }));
+      }
+      ws.close();
+    };
+  }, [insightId, onComplete]);
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
       <CardContent className="p-6 md:p-8">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto mb-4 relative">
-            <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-            <div 
-              className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"
-              style={{ animationDuration: "1.5s" }}
-            ></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Generating Insights</h3>
+              <p className="text-sm text-muted-foreground">
+                Claude is analyzing your book...
+              </p>
             </div>
           </div>
-          <h3 className="font-serif text-xl md:text-2xl font-semibold text-foreground mb-2">
-            Generating Insights
-          </h3>
-          <p className="text-muted-foreground text-sm md:text-base">
-            {statusMessage}
-          </p>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex justify-between text-xs text-muted-foreground mb-2">
-            <span>Progress</span>
-            <span>{Math.round(progress)}%</span>
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{statusMessage}</span>
+              <span className="font-medium text-primary">{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Progress value={progress} className="h-2" />
-        </div>
 
-        {/* Title and Summary Preview */}
-        {status?.title && typeof status.title === 'string' && status.title.trim() && status.title !== `Insights: ` && (
-          <div className="mb-4 p-4 bg-background/50 rounded-lg border border-border">
-            <h4 className="font-serif text-lg font-semibold text-foreground mb-2">
-              {status.title}
-            </h4>
-            {status.summary && typeof status.summary === 'string' && status.summary.trim() && (
-              <p className="text-sm text-muted-foreground line-clamp-3">
-                {status.summary}
-              </p>
+          {/* Status Message */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {status === 'failed' ? (
+              <span className="text-destructive">❌ {statusMessage}</span>
+            ) : status === 'completed' ? (
+              <>
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-green-500">{statusMessage}</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{statusMessage}</span>
+              </>
             )}
           </div>
-        )}
 
-        {/* Section Count */}
-        {status?.sectionCount && status.sectionCount > 0 && (
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle className="w-4 h-4 text-primary" />
-            <span>{status.sectionCount} sections generated</span>
+          {/* Info Box */}
+          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">What's happening:</strong>
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+              <li>• Analyzing book structure and themes</li>
+              <li>• Extracting key insights and concepts</li>
+              <li>• Generating comprehensive summaries</li>
+              <li>• Creating visual representations</li>
+            </ul>
+            <p className="text-xs text-muted-foreground mt-3">
+              This typically takes 2-5 minutes depending on book length.
+            </p>
           </div>
-        )}
-
-        {/* Animated Dots */}
-        <div className="flex justify-center gap-1 mt-4">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-2 h-2 rounded-full bg-primary animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
-          ))}
         </div>
       </CardContent>
     </Card>
