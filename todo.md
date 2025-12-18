@@ -583,3 +583,8 @@
 - [x] Create error debug page at /error-debug that displays all errors on screen
 - [x] Captures global errors, mutation errors, and server errors
 - [ ] Deploy and visit /error-debug to see errors without console
+
+## httpLink Fix (CURRENT)
+- [x] Replaced httpBatchLink with httpLink to eliminate request batching
+- [x] Batching was encoding data in URL query strings which may have caused invalid URLs
+- [ ] Deploy and test if error is resolved
