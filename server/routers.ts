@@ -271,7 +271,31 @@ export const appRouter = router({
           
           return { insightId: Number(insightId) };
         } catch (error) {
+          // Import and use error logger
+          const { logError: logErrorToFile } = await import('./errorLogger.js');
+          
           const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          
+          // Log comprehensive error details to file
+          logErrorToFile({
+            timestamp: new Date().toISOString(),
+            errorType: 'generation_mutation',
+            errorMessage,
+            errorStack,
+            requestPath: 'insights.generate',
+            requestInput: { bookId: input.bookId },
+            userId,
+            bookId: input.bookId,
+            insightId,
+            additionalInfo: {
+              bookTitle: book?.title,
+              bookAuthor: book?.author,
+              errorName: error instanceof Error ? error.name : 'Unknown',
+              errorConstructor: error?.constructor?.name,
+            }
+          });
+          
           // Aggressive sanitization to prevent tRPC URL encoding issues
           const sanitizedMessage = errorMessage
             .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
@@ -794,6 +818,21 @@ export const appRouter = router({
   }),
 
   // Debug router for monitoring extraction and generation
+  errorViewer: router({
+    // Get all logged errors
+    getErrors: publicProcedure.query(async () => {
+      const { getErrorLogs } = await import('./errorLogger.js');
+      return getErrorLogs();
+    }),
+
+    // Clear all logged errors
+    clearErrors: publicProcedure.mutation(async () => {
+      const { clearErrorLogs } = await import('./errorLogger.js');
+      clearErrorLogs();
+      return { success: true };
+    }),
+  }),
+
   debug: router({
     // Get debug logs
     logs: publicProcedure

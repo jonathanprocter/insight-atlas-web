@@ -50,6 +50,20 @@
       "when": 1765979053460,
       "tag": "0006_safe_domino",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1766038868633,
+      "tag": "0007_last_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1766038977551,
+      "tag": "0008_neat_hemingway",
+      "breakpoints": true
     }
   ]
 }

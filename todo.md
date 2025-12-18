@@ -557,3 +557,11 @@
 - [x] Added insightId validation before return
 - [x] Added aggressive error message sanitization
 - [ ] Test with real book generation
+
+## Production Error - String Pattern Error Persists (CURRENT)
+- [x] Add file-based error logging to capture full error details
+- [x] Log all generation errors with stack traces to /tmp/insight-atlas-errors.json
+- [x] Create errorViewer tRPC router to read logged errors
+- [ ] Deploy to production and trigger generation
+- [ ] Read error logs via trpc.errorViewer.getErrors
+- [ ] Fix root cause based on error data

@@ -112,3 +112,4 @@ export const contentBlocks = mysqlTable("content_blocks", {
 
 export type ContentBlock = typeof contentBlocks.$inferSelect;
 export type InsertContentBlock = typeof contentBlocks.$inferInsert;
+
